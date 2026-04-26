@@ -12,6 +12,7 @@ classdef QuadrotorRRTApp < matlab.apps.AppBase
         MainGrid matlab.ui.container.GridLayout
         LeftPanel matlab.ui.container.Panel
         RightPanel matlab.ui.container.Panel
+
         PlotAxes matlab.ui.control.UIAxes
         ErrorAxes matlab.ui.control.UIAxes
         MotorAxes matlab.ui.control.UIAxes
@@ -51,104 +52,284 @@ classdef QuadrotorRRTApp < matlab.apps.AppBase
     end
 
     methods (Access = public)
+
         function app = QuadrotorRRTApp()
             app.RootDir = fileparts(fileparts(mfilename('fullpath')));
             addpath(genpath(fullfile(app.RootDir, 'src')));
+
             app.createComponents();
             app.loadDefaultScenario();
         end
+
     end
 
     methods (Access = private)
+
         function createComponents(app)
-            app.UIFigure = uifigure('Name', 'RRT-планирование траектории квадрокоптера', 'Position', [100 100 1450 850]);
+            app.UIFigure = uifigure( ...
+                'Name', 'RRT-планирование траектории квадрокоптера', ...
+                'Position', [100 100 1500 900]);
+
             app.MainGrid = uigridlayout(app.UIFigure, [1 2]);
-            app.MainGrid.ColumnWidth = {430, '1x'};
+            app.MainGrid.ColumnWidth = {570, '1x'};
+            app.MainGrid.RowHeight = {'1x'};
+            app.MainGrid.Padding = [8 8 8 8];
+            app.MainGrid.ColumnSpacing = 8;
 
-            app.LeftPanel = uipanel(app.MainGrid, 'Title', 'Параметры');
-            app.RightPanel = uipanel(app.MainGrid, 'Title', 'Результаты');
+            app.LeftPanel = uipanel(app.MainGrid, ...
+                'Title', 'Параметры');
 
-            leftGrid = uigridlayout(app.LeftPanel, [5 1]);
-            leftGrid.RowHeight = {150, 190, 170, '1x', 85};
+            app.RightPanel = uipanel(app.MainGrid, ...
+                'Title', 'Результаты');
 
-            mapPanel = uipanel(leftGrid, 'Title', 'Рабочая область');
+            %% ===================== ЛЕВАЯ ПАНЕЛЬ =====================
+
+            leftGrid = uigridlayout(app.LeftPanel, [2 1]);
+            leftGrid.RowHeight = {'1x', 90};
+            leftGrid.ColumnWidth = {'1x'};
+            leftGrid.Padding = [8 8 8 8];
+            leftGrid.RowSpacing = 8;
+
+            paramPanel = uipanel(leftGrid, ...
+                'Title', 'Параметры расчёта');
+            paramPanel.Layout.Row = 1;
+
+            actionPanel = uipanel(leftGrid, ...
+                'Title', 'Управление');
+            actionPanel.Layout.Row = 2;
+
+            if isprop(paramPanel, 'Scrollable')
+                paramPanel.Scrollable = 'on';
+            end
+
+            paramGrid = uigridlayout(paramPanel, [4 1]);
+            paramGrid.RowHeight = {145, 175, 235, '1x'};
+            paramGrid.ColumnWidth = {'1x'};
+            paramGrid.Padding = [8 8 8 8];
+            paramGrid.RowSpacing = 8;
+
+            %% ===================== РАБОЧАЯ ОБЛАСТЬ =====================
+
+            mapPanel = uipanel(paramGrid, ...
+                'Title', 'Рабочая область');
+            mapPanel.Layout.Row = 1;
+
             mapGrid = uigridlayout(mapPanel, [4 4]);
-            mapGrid.RowHeight = {22, 22, 22, 22};
-            mapGrid.ColumnWidth = {85, '1x', 85, '1x'};
+            mapGrid.RowHeight = {24, 24, 24, 24};
+            mapGrid.ColumnWidth = {105, '1x', 105, '1x'};
+            mapGrid.Padding = [8 6 8 6];
+            mapGrid.RowSpacing = 5;
+            mapGrid.ColumnSpacing = 10;
 
-            addLabel(mapGrid, 'Ширина, м'); app.WidthField = addNum(mapGrid, 1000);
-            addLabel(mapGrid, 'Высота, м'); app.HeightField = addNum(mapGrid, 1000);
-            addLabel(mapGrid, 'Разрешение, м'); app.ResolutionField = addNum(mapGrid, 1);
-            addLabel(mapGrid, 'Отступ, м'); app.SafetyRadiusField = addNum(mapGrid, 5);
-            addLabel(mapGrid, 'Старт X'); app.StartXField = addNum(mapGrid, 50);
-            addLabel(mapGrid, 'Старт Y'); app.StartYField = addNum(mapGrid, 50);
-            addLabel(mapGrid, 'Цель X'); app.GoalXField = addNum(mapGrid, 950);
-            addLabel(mapGrid, 'Цель Y'); app.GoalYField = addNum(mapGrid, 950);
+            addLabel(mapGrid, 'Ширина, м');
+            app.WidthField = addNum(mapGrid, 1000);
 
-            rrtPanel = uipanel(leftGrid, 'Title', 'Параметры RRT');
+            addLabel(mapGrid, 'Высота, м');
+            app.HeightField = addNum(mapGrid, 1000);
+
+            addLabel(mapGrid, 'Разрешение, м');
+            app.ResolutionField = addNum(mapGrid, 1);
+
+            addLabel(mapGrid, 'Отступ, м');
+            app.SafetyRadiusField = addNum(mapGrid, 5);
+
+            addLabel(mapGrid, 'Старт X');
+            app.StartXField = addNum(mapGrid, 50);
+
+            addLabel(mapGrid, 'Старт Y');
+            app.StartYField = addNum(mapGrid, 50);
+
+            addLabel(mapGrid, 'Цель X');
+            app.GoalXField = addNum(mapGrid, 950);
+
+            addLabel(mapGrid, 'Цель Y');
+            app.GoalYField = addNum(mapGrid, 950);
+
+            %% ===================== ПАРАМЕТРЫ RRT =====================
+
+            rrtPanel = uipanel(paramGrid, ...
+                'Title', 'Параметры RRT');
+            rrtPanel.Layout.Row = 2;
+
             rrtGrid = uigridlayout(rrtPanel, [4 4]);
-            rrtGrid.RowHeight = {22, 22, 22, 22};
-            rrtGrid.ColumnWidth = {95, '1x', 95, '1x'};
+            rrtGrid.RowHeight = {26, 26, 26, 26};
+            rrtGrid.ColumnWidth = {105, '1x', 105, '1x'};
+            rrtGrid.Padding = [8 6 8 6];
+            rrtGrid.RowSpacing = 5;
+            rrtGrid.ColumnSpacing = 10;
 
-            addLabel(rrtGrid, 'Шаг, м'); app.StepSizeField = addNum(rrtGrid, 50);
-            addLabel(rrtGrid, 'Goal bias'); app.GoalBiasField = addNum(rrtGrid, 0.1);
-            addLabel(rrtGrid, 'Итерации'); app.MaxIterField = addNum(rrtGrid, 6000);
-            addLabel(rrtGrid, 'Порог цели'); app.GoalThresholdField = addNum(rrtGrid, 50);
-            addLabel(rrtGrid, 'Шаг проверки'); app.CollisionStepField = addNum(rrtGrid, 1);
-            addLabel(rrtGrid, 'Сглаживание'); app.SmoothIterField = addNum(rrtGrid, 300);
-            addLabel(rrtGrid, 'Шаг пути'); app.DenseStepField = addNum(rrtGrid, 1);
+            addLabel(rrtGrid, 'Шаг, м');
+            app.StepSizeField = addNum(rrtGrid, 50);
 
-            quadPanel = uipanel(leftGrid, 'Title', 'Модель квадрокоптера и моделирование');
-            quadGrid = uigridlayout(quadPanel, [5 4]);
-            quadGrid.RowHeight = {22, 22, 22, 22, 22};
-            quadGrid.ColumnWidth = {95, '1x', 95, '1x'};
+            addLabel(rrtGrid, 'Goal bias');
+            app.GoalBiasField = addNum(rrtGrid, 0.1);
 
-            addLabel(quadGrid, 'Масса, кг'); app.MassField = addNum(quadGrid, 4.34);
-            addLabel(quadGrid, 'Jx'); app.JxField = addNum(quadGrid, 0.0820);
-            addLabel(quadGrid, 'Jy'); app.JyField = addNum(quadGrid, 0.0845);
-            addLabel(quadGrid, 'Jz'); app.JzField = addNum(quadGrid, 0.1377);
-            addLabel(quadGrid, 'Плечо, м'); app.ArmField = addNum(quadGrid, 0.315);
-            addLabel(quadGrid, 'c_tau_f'); app.CTauField = addNum(quadGrid, 8.004e-3);
-            addLabel(quadGrid, 'Fmax, Н'); app.FMaxField = addNum(quadGrid, 60);
-            addLabel(quadGrid, 'v ref, м/с'); app.VRefField = addNum(quadGrid, 10);
-            addLabel(quadGrid, 'dt, с'); app.DtField = addNum(quadGrid, 0.02);
-            addLabel(quadGrid, 'z ref, м'); app.ZRefField = addNum(quadGrid, 0);
+            addLabel(rrtGrid, 'Итерации');
+            app.MaxIterField = addNum(rrtGrid, 6000);
 
-            obstaclePanel = uipanel(leftGrid, 'Title', 'Препятствия [x, y, ширина, высота]');
+            addLabel(rrtGrid, 'Порог цели');
+            app.GoalThresholdField = addNum(rrtGrid, 50);
+
+            addLabel(rrtGrid, 'Шаг проверки');
+            app.CollisionStepField = addNum(rrtGrid, 1);
+
+            addLabel(rrtGrid, 'Сглаживание');
+            app.SmoothIterField = addNum(rrtGrid, 300);
+
+            addLabel(rrtGrid, 'Шаг пути');
+            app.DenseStepField = addNum(rrtGrid, 1);
+
+            uilabel(rrtGrid, 'Text', '');
+            uilabel(rrtGrid, 'Text', '');
+
+            %% ===================== МОДЕЛЬ КВАДРОКОПТЕРА =====================
+
+            quadPanel = uipanel(paramGrid, ...
+                'Title', 'Модель квадрокоптера');
+            quadPanel.Layout.Row = 3;
+
+            quadGrid = uigridlayout(quadPanel, [6 4]);
+            quadGrid.RowHeight = {25, 25, 25, 25, 25, 25};
+            quadGrid.ColumnWidth = {105, '1x', 105, '1x'};
+            quadGrid.Padding = [8 6 8 6];
+            quadGrid.RowSpacing = 5;
+            quadGrid.ColumnSpacing = 10;
+
+            addLabel(quadGrid, 'Масса, кг');
+            app.MassField = addNum(quadGrid, 4.34);
+
+            addLabel(quadGrid, 'Jx');
+            app.JxField = addNum(quadGrid, 0.0820);
+
+            addLabel(quadGrid, 'Jy');
+            app.JyField = addNum(quadGrid, 0.0845);
+
+            addLabel(quadGrid, 'Jz');
+            app.JzField = addNum(quadGrid, 0.1377);
+
+            addLabel(quadGrid, 'Плечо, м');
+            app.ArmField = addNum(quadGrid, 0.315);
+
+            addLabel(quadGrid, 'c_tau_f');
+            app.CTauField = addNum(quadGrid, 8.004e-3);
+
+            addLabel(quadGrid, 'Fmax, Н');
+            app.FMaxField = addNum(quadGrid, 60);
+
+            addLabel(quadGrid, 'v ref, м/с');
+            app.VRefField = addNum(quadGrid, 10);
+
+            addLabel(quadGrid, 'dt, с');
+            app.DtField = addNum(quadGrid, 0.02);
+
+            addLabel(quadGrid, 'z ref, м');
+            app.ZRefField = addNum(quadGrid, 0);
+
+            addLabel(quadGrid, 'Макс. ошибка, м');
+            app.MaxErrorField = addNum(quadGrid, 25);
+            app.MaxErrorField.Tooltip = 'Допустимая конечная ошибка слежения, м';
+
+            uilabel(quadGrid, 'Text', '');
+            uilabel(quadGrid, 'Text', '');
+
+            %% ===================== ПРЕПЯТСТВИЯ =====================
+
+            obstaclePanel = uipanel(paramGrid, ...
+                'Title', 'Препятствия [x, y, ширина, высота]');
+            obstaclePanel.Layout.Row = 4;
+
             obstacleGrid = uigridlayout(obstaclePanel, [2 1]);
-            obstacleGrid.RowHeight = {'1x', 34};
+            obstacleGrid.RowHeight = {'1x', 30};
+            obstacleGrid.ColumnWidth = {'1x'};
+            obstacleGrid.Padding = [8 6 8 6];
+            obstacleGrid.RowSpacing = 5;
+
             app.ObstaclesTable = uitable(obstacleGrid);
-            app.ObstaclesTable.ColumnName = {'x', 'y', 'ширина', 'высота'};
+            app.ObstaclesTable.ColumnName = {'x', 'y', 'w', 'h'};
             app.ObstaclesTable.ColumnEditable = [true true true true];
+            app.ObstaclesTable.Layout.Row = 1;
+            app.ObstaclesTable.Layout.Column = 1;
 
             obstacleButtonGrid = uigridlayout(obstacleGrid, [1 4]);
-            btnAdd = uibutton(obstacleButtonGrid, 'Text', 'Добавить', 'ButtonPushedFcn', @(~,~) app.addObstacle());
-            btnDelete = uibutton(obstacleButtonGrid, 'Text', 'Удалить', 'ButtonPushedFcn', @(~,~) app.deleteObstacle());
-            btnDefaults = uibutton(obstacleButtonGrid, 'Text', 'По умолчанию', 'ButtonPushedFcn', @(~,~) app.loadDefaultScenario());
-            btnClear = uibutton(obstacleButtonGrid, 'Text', 'Очистить', 'ButtonPushedFcn', @(~,~) app.clearObstacles());
-            %#ok<NASGU>
+            obstacleButtonGrid.Layout.Row = 2;
+            obstacleButtonGrid.Layout.Column = 1;
+            obstacleButtonGrid.RowHeight = {26};
+            obstacleButtonGrid.ColumnWidth = {'1x', '1x', '1.25x', '1x'};
+            obstacleButtonGrid.Padding = [0 0 0 0];
+            obstacleButtonGrid.ColumnSpacing = 6;
 
-            actionPanel = uipanel(leftGrid, 'Title', 'Управление');
+            uibutton(obstacleButtonGrid, ...
+                'Text', 'Добавить', ...
+                'ButtonPushedFcn', @(~,~) app.addObstacle());
+
+            uibutton(obstacleButtonGrid, ...
+                'Text', 'Удалить', ...
+                'ButtonPushedFcn', @(~,~) app.deleteObstacle());
+
+            uibutton(obstacleButtonGrid, ...
+                'Text', 'По умолчанию', ...
+                'ButtonPushedFcn', @(~,~) app.loadDefaultScenario());
+
+            uibutton(obstacleButtonGrid, ...
+                'Text', 'Очистить', ...
+                'ButtonPushedFcn', @(~,~) app.clearObstacles());
+
+            %% ===================== УПРАВЛЕНИЕ =====================
+
             actionGrid = uigridlayout(actionPanel, [2 3]);
-            actionGrid.RowHeight = {32, 32};
-            uibutton(actionGrid, 'Text', 'Построить маршрут', 'ButtonPushedFcn', @(~,~) app.runPlanning());
-            uibutton(actionGrid, 'Text', 'Сохранить CSV', 'ButtonPushedFcn', @(~,~) app.exportCsv());
-            uibutton(actionGrid, 'Text', 'Сохранить сценарий', 'ButtonPushedFcn', @(~,~) app.saveScenario());
-            app.MaxErrorField = addNum(actionGrid, 25);
-            app.MaxErrorField.Tooltip = 'Допустимая конечная ошибка слежения, м';
-            app.StatusLabel = uilabel(actionGrid, 'Text', 'Готово');
-            app.StatusLabel.Layout.Column = [2 3];
+            actionGrid.RowHeight = {30, 24};
+            actionGrid.ColumnWidth = {'1.25x', '1x', '1.25x'};
+            actionGrid.Padding = [8 6 8 6];
+            actionGrid.RowSpacing = 4;
+            actionGrid.ColumnSpacing = 8;
+
+            uibutton(actionGrid, ...
+                'Text', 'Построить маршрут', ...
+                'ButtonPushedFcn', @(~,~) app.runPlanning());
+
+            uibutton(actionGrid, ...
+                'Text', 'Сохранить CSV', ...
+                'ButtonPushedFcn', @(~,~) app.exportCsv());
+
+            uibutton(actionGrid, ...
+                'Text', 'Сохранить сценарий', ...
+                'ButtonPushedFcn', @(~,~) app.saveScenario());
+
+            app.StatusLabel = uilabel(actionGrid, ...
+                'Text', 'Готово');
+
+            app.StatusLabel.Layout.Row = 2;
+            app.StatusLabel.Layout.Column = [1 3];
+
+            %% ===================== ПРАВАЯ ПАНЕЛЬ =====================
 
             rightGrid = uigridlayout(app.RightPanel, [4 1]);
-            rightGrid.RowHeight = {'2x', '1x', '1x', 115};
+            rightGrid.RowHeight = {'2x', '1x', '1x', 130};
+            rightGrid.ColumnWidth = {'1x'};
+            rightGrid.Padding = [10 10 10 10];
+            rightGrid.RowSpacing = 8;
+
             app.PlotAxes = uiaxes(rightGrid);
+            title(app.PlotAxes, 'Карта и маршрут');
+            xlabel(app.PlotAxes, 'X, м');
+            ylabel(app.PlotAxes, 'Y, м');
+
             app.ErrorAxes = uiaxes(rightGrid);
+            title(app.ErrorAxes, 'Ошибка слежения');
+            xlabel(app.ErrorAxes, 'Время, с');
+            ylabel(app.ErrorAxes, 'Ошибка, м');
+
             app.MotorAxes = uiaxes(rightGrid);
+            title(app.MotorAxes, 'Тяги двигателей');
+            xlabel(app.MotorAxes, 'Время, с');
+            ylabel(app.MotorAxes, 'Тяга, Н');
+
             app.ResultTable = uitable(rightGrid);
         end
 
         function loadDefaultScenario(app)
             s = config.defaultScenario();
+
             app.WidthField.Value = s.map.width;
             app.HeightField.Value = s.map.height;
             app.ResolutionField.Value = s.map.resolution;
@@ -177,19 +358,38 @@ classdef QuadrotorRRTApp < matlab.apps.AppBase
             app.DtField.Value = s.sim.dt;
             app.ZRefField.Value = s.sim.zRef;
             app.MaxErrorField.Value = s.sim.maxTrackingError;
+
             app.ObstaclesTable.Data = s.obstacles;
             app.StatusLabel.Text = 'Загружены параметры по умолчанию';
-            viz.plotScenario(app.PlotAxes, s.map, s.obstacles, s.start2d, s.goal2d, [], [], []);
+
+            viz.plotScenario( ...
+                app.PlotAxes, ...
+                s.map, ...
+                s.obstacles, ...
+                s.start2d, ...
+                s.goal2d, ...
+                [], ...
+                [], ...
+                []);
         end
 
         function scenario = collectScenario(app)
             scenario.map.width = app.WidthField.Value;
             scenario.map.height = app.HeightField.Value;
             scenario.map.resolution = app.ResolutionField.Value;
-            scenario.start2d = [app.StartXField.Value, app.StartYField.Value];
-            scenario.goal2d = [app.GoalXField.Value, app.GoalYField.Value];
+
+            scenario.start2d = [
+                app.StartXField.Value, ...
+                app.StartYField.Value];
+
+            scenario.goal2d = [
+                app.GoalXField.Value, ...
+                app.GoalYField.Value];
+
             scenario.safetyRadius = app.SafetyRadiusField.Value;
+
             scenario.obstacles = app.ObstaclesTable.Data;
+
             if isempty(scenario.obstacles)
                 scenario.obstacles = zeros(0, 4);
             end
@@ -203,7 +403,11 @@ classdef QuadrotorRRTApp < matlab.apps.AppBase
             scenario.rrt.densePathStep = app.DenseStepField.Value;
 
             scenario.quad.m = app.MassField.Value;
-            scenario.quad.J = diag([app.JxField.Value, app.JyField.Value, app.JzField.Value]);
+            scenario.quad.J = diag([
+                app.JxField.Value, ...
+                app.JyField.Value, ...
+                app.JzField.Value]);
+
             scenario.quad.g = 9.81;
             scenario.quad.e3 = [0; 0; 1];
             scenario.quad.d = app.ArmField.Value;
@@ -212,6 +416,7 @@ classdef QuadrotorRRTApp < matlab.apps.AppBase
             scenario.quad.fMinPerMotor = 0;
 
             scenario.ctrl = config.defaultController();
+
             scenario.sim.dt = app.DtField.Value;
             scenario.sim.vRef = app.VRefField.Value;
             scenario.sim.zRef = app.ZRefField.Value;
@@ -222,15 +427,38 @@ classdef QuadrotorRRTApp < matlab.apps.AppBase
             try
                 app.StatusLabel.Text = 'Расчёт...';
                 drawnow;
+
                 scenario = app.collectScenario();
                 app.CurrentResult = runSingleExperiment(scenario);
 
-                viz.plotScenario(app.PlotAxes, scenario.map, scenario.obstacles, scenario.start2d, scenario.goal2d, ...
-                    app.CurrentResult.tree, app.CurrentResult.path, app.CurrentResult.simLog);
+                viz.plotScenario( ...
+                    app.PlotAxes, ...
+                    scenario.map, ...
+                    scenario.obstacles, ...
+                    scenario.start2d, ...
+                    scenario.goal2d, ...
+                    app.CurrentResult.tree, ...
+                    app.CurrentResult.path, ...
+                    app.CurrentResult.simLog);
+
                 app.ResultTable.Data = table2cell(app.CurrentResult.summary);
-                app.ResultTable.ColumnName = {'Маршрут найден', 'Время расчёта, с', 'Длина пути, м', 'Макс. кривизна, 1/м', 'Средняя кривизна, 1/м', 'Динамически реализуем', 'Конечная ошибка, м', 'Макс. ошибка, м', 'Макс. тяга, Н', 'Средняя тяга, Н'};
+
+                app.ResultTable.ColumnName = { ...
+                    'Маршрут найден', ...
+                    'Время расчёта, с', ...
+                    'Длина пути, м', ...
+                    'Макс. кривизна, 1/м', ...
+                    'Средняя кривизна, 1/м', ...
+                    'Динамически реализуем', ...
+                    'Конечная ошибка, м', ...
+                    'Макс. ошибка, м', ...
+                    'Макс. тяга, Н', ...
+                    'Средняя тяга, Н'};
+
                 app.plotSimulationGraphs();
+
                 app.StatusLabel.Text = app.CurrentResult.message;
+
             catch ME
                 app.StatusLabel.Text = ['Ошибка: ', ME.message];
                 uialert(app.UIFigure, ME.message, 'Ошибка расчёта');
@@ -240,18 +468,24 @@ classdef QuadrotorRRTApp < matlab.apps.AppBase
         function plotSimulationGraphs(app)
             cla(app.ErrorAxes);
             cla(app.MotorAxes);
+
             if isempty(app.CurrentResult) || isempty(app.CurrentResult.simLog)
                 return;
             end
 
             log = app.CurrentResult.simLog;
-            plot(app.ErrorAxes, log.t, log.trackingError, 'LineWidth', 2);
+
+            plot(app.ErrorAxes, log.t, log.trackingError, ...
+                'LineWidth', 2);
+
             grid(app.ErrorAxes, 'on');
             xlabel(app.ErrorAxes, 'Время, с');
             ylabel(app.ErrorAxes, 'Ошибка, м');
             title(app.ErrorAxes, 'Ошибка слежения динамической модели');
 
-            plot(app.MotorAxes, log.t, log.motorThrusts', 'LineWidth', 1.2);
+            plot(app.MotorAxes, log.t, log.motorThrusts', ...
+                'LineWidth', 1.2);
+
             grid(app.MotorAxes, 'on');
             xlabel(app.MotorAxes, 'Время, с');
             ylabel(app.MotorAxes, 'Тяга, Н');
@@ -260,19 +494,25 @@ classdef QuadrotorRRTApp < matlab.apps.AppBase
 
         function addObstacle(app)
             data = app.ObstaclesTable.Data;
+
             if isempty(data)
                 data = zeros(0, 4);
             end
+
             data = [data; 100, 100, 100, 100]; %#ok<AGROW>
+
             app.ObstaclesTable.Data = data;
         end
 
         function deleteObstacle(app)
             data = app.ObstaclesTable.Data;
+
             if isempty(data)
                 return;
             end
+
             data(end, :) = [];
+
             app.ObstaclesTable.Data = data;
         end
 
@@ -282,33 +522,56 @@ classdef QuadrotorRRTApp < matlab.apps.AppBase
 
         function exportCsv(app)
             if isempty(app.CurrentResult)
-                uialert(app.UIFigure, 'Сначала выполните расчёт.', 'Нет данных');
+                uialert(app.UIFigure, ...
+                    'Сначала выполните расчёт.', ...
+                    'Нет данных');
                 return;
             end
-            [file, path] = uiputfile('result.csv', 'Сохранить результаты');
+
+            [file, path] = uiputfile('result.csv', ...
+                'Сохранить результаты');
+
             if isequal(file, 0)
                 return;
             end
+
             writetable(app.CurrentResult.summary, fullfile(path, file));
+
             app.StatusLabel.Text = 'Результаты сохранены';
         end
 
         function saveScenario(app)
             scenario = app.collectScenario(); %#ok<NASGU>
-            [file, path] = uiputfile('scenario.mat', 'Сохранить сценарий');
+
+            [file, path] = uiputfile('scenario.mat', ...
+                'Сохранить сценарий');
+
             if isequal(file, 0)
                 return;
             end
+
             save(fullfile(path, file), 'scenario');
+
             app.StatusLabel.Text = 'Сценарий сохранён';
         end
+
     end
+
 end
 
 function label = addLabel(parent, text)
-label = uilabel(parent, 'Text', text);
+label = uilabel(parent, ...
+    'Text', text);
+
+label.HorizontalAlignment = 'left';
 end
 
 function field = addNum(parent, value)
-field = uieditfield(parent, 'numeric', 'Value', value);
+field = uieditfield(parent, ...
+    'numeric', ...
+    'Value', value);
+
+if isprop(field, 'HorizontalAlignment')
+    field.HorizontalAlignment = 'right';
+end
 end
