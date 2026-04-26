@@ -132,19 +132,6 @@ run('scripts/run_app.m')
 run('scripts/run_demo.m')
 ```
 
-## Публикация на GitHub
-
-После распаковки архива выполните:
-
-```bash
-git init
-git add .
-git commit -m "Initial MATLAB RRT quadrotor app"
-git branch -M main
-git remote add origin https://github.com/<user>/<repo>.git
-git push -u origin main
-```
-
 ## Ограничения
 
 - Препятствия имеют прямоугольную форму и задаются в плоскости XY.
