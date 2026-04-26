@@ -1,0 +1,13 @@
+# MATLAB temporary files
+*.asv
+*.m~
+*.slxc
+*.mex*
+*.mlappinstall
+*.prj
+
+# Generated output
+results/
+*.csv
+*.mat
+
