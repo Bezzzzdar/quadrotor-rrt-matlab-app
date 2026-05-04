@@ -36,13 +36,6 @@ classdef QuadrotorRRTApp < matlab.apps.AppBase
         SmoothIterField matlab.ui.control.NumericEditField
         DenseStepField matlab.ui.control.NumericEditField
 
-        MassField matlab.ui.control.NumericEditField
-        JxField matlab.ui.control.NumericEditField
-        JyField matlab.ui.control.NumericEditField
-        JzField matlab.ui.control.NumericEditField
-        ArmField matlab.ui.control.NumericEditField
-        CTauField matlab.ui.control.NumericEditField
-        FMaxField matlab.ui.control.NumericEditField
         VRefField matlab.ui.control.NumericEditField
         DtField matlab.ui.control.NumericEditField
         ZRefField matlab.ui.control.NumericEditField
@@ -103,7 +96,7 @@ classdef QuadrotorRRTApp < matlab.apps.AppBase
             end
 
             paramGrid = uigridlayout(paramPanel, [4 1]);
-            paramGrid.RowHeight = {145, 175, 235, '1x'};
+            paramGrid.RowHeight = {145, 175, 95, '1x'};
             paramGrid.ColumnWidth = {'1x'};
             paramGrid.Padding = [8 8 8 8];
             paramGrid.RowSpacing = 8;
@@ -182,55 +175,31 @@ classdef QuadrotorRRTApp < matlab.apps.AppBase
             uilabel(rrtGrid, 'Text', '');
             uilabel(rrtGrid, 'Text', '');
 
-            %% ===================== МОДЕЛЬ КВАДРОКОПТЕРА =====================
+            %% ===================== ПАРАМЕТРЫ СИМУЛЯЦИИ =====================
 
-            quadPanel = uipanel(paramGrid, ...
-                'Title', 'Модель квадрокоптера');
-            quadPanel.Layout.Row = 3;
+            simPanel = uipanel(paramGrid, ...
+                'Title', 'Параметры симуляции');
+            simPanel.Layout.Row = 3;
 
-            quadGrid = uigridlayout(quadPanel, [6 4]);
-            quadGrid.RowHeight = {25, 25, 25, 25, 25, 25};
-            quadGrid.ColumnWidth = {105, '1x', 105, '1x'};
-            quadGrid.Padding = [8 6 8 6];
-            quadGrid.RowSpacing = 5;
-            quadGrid.ColumnSpacing = 10;
+            simGrid = uigridlayout(simPanel, [2 4]);
+            simGrid.RowHeight = {25, 25};
+            simGrid.ColumnWidth = {105, '1x', 105, '1x'};
+            simGrid.Padding = [8 6 8 6];
+            simGrid.RowSpacing = 5;
+            simGrid.ColumnSpacing = 10;
 
-            addLabel(quadGrid, 'Масса, кг');
-            app.MassField = addNum(quadGrid, 4.34);
+            addLabel(simGrid, 'v ref, м/с');
+            app.VRefField = addNum(simGrid, 10);
 
-            addLabel(quadGrid, 'Jx');
-            app.JxField = addNum(quadGrid, 0.0820);
+            addLabel(simGrid, 'dt, с');
+            app.DtField = addNum(simGrid, 0.02);
 
-            addLabel(quadGrid, 'Jy');
-            app.JyField = addNum(quadGrid, 0.0845);
+            addLabel(simGrid, 'z ref, м');
+            app.ZRefField = addNum(simGrid, 0);
 
-            addLabel(quadGrid, 'Jz');
-            app.JzField = addNum(quadGrid, 0.1377);
-
-            addLabel(quadGrid, 'Плечо, м');
-            app.ArmField = addNum(quadGrid, 0.315);
-
-            addLabel(quadGrid, 'c_tau_f');
-            app.CTauField = addNum(quadGrid, 8.004e-3);
-
-            addLabel(quadGrid, 'Fmax, Н');
-            app.FMaxField = addNum(quadGrid, 60);
-
-            addLabel(quadGrid, 'v ref, м/с');
-            app.VRefField = addNum(quadGrid, 10);
-
-            addLabel(quadGrid, 'dt, с');
-            app.DtField = addNum(quadGrid, 0.02);
-
-            addLabel(quadGrid, 'z ref, м');
-            app.ZRefField = addNum(quadGrid, 0);
-
-            addLabel(quadGrid, 'Макс. ошибка, м');
-            app.MaxErrorField = addNum(quadGrid, 25);
+            addLabel(simGrid, 'Макс. ошибка, м');
+            app.MaxErrorField = addNum(simGrid, 25);
             app.MaxErrorField.Tooltip = 'Допустимая конечная ошибка слежения, м';
-
-            uilabel(quadGrid, 'Text', '');
-            uilabel(quadGrid, 'Text', '');
 
             %% ===================== ПРЕПЯТСТВИЯ =====================
 
@@ -347,13 +316,6 @@ classdef QuadrotorRRTApp < matlab.apps.AppBase
             app.SmoothIterField.Value = s.rrt.smoothingIterations;
             app.DenseStepField.Value = s.rrt.densePathStep;
 
-            app.MassField.Value = s.quad.m;
-            app.JxField.Value = s.quad.J(1, 1);
-            app.JyField.Value = s.quad.J(2, 2);
-            app.JzField.Value = s.quad.J(3, 3);
-            app.ArmField.Value = s.quad.d;
-            app.CTauField.Value = s.quad.cTauF;
-            app.FMaxField.Value = s.quad.fMaxPerMotor;
             app.VRefField.Value = s.sim.vRef;
             app.DtField.Value = s.sim.dt;
             app.ZRefField.Value = s.sim.zRef;
@@ -402,18 +364,7 @@ classdef QuadrotorRRTApp < matlab.apps.AppBase
             scenario.rrt.smoothingIterations = round(app.SmoothIterField.Value);
             scenario.rrt.densePathStep = app.DenseStepField.Value;
 
-            scenario.quad.m = app.MassField.Value;
-            scenario.quad.J = diag([
-                app.JxField.Value, ...
-                app.JyField.Value, ...
-                app.JzField.Value]);
-
-            scenario.quad.g = 9.81;
-            scenario.quad.e3 = [0; 0; 1];
-            scenario.quad.d = app.ArmField.Value;
-            scenario.quad.cTauF = app.CTauField.Value;
-            scenario.quad.fMaxPerMotor = app.FMaxField.Value;
-            scenario.quad.fMinPerMotor = 0;
+            scenario.quad = config.defaultQuadrotor();
 
             scenario.ctrl = config.defaultController();
 
@@ -499,7 +450,7 @@ classdef QuadrotorRRTApp < matlab.apps.AppBase
                 data = zeros(0, 4);
             end
 
-            data = [data; 100, 100, 100, 100]; %#ok<AGROW>
+            data = [data; 100, 100, 100, 100];
 
             app.ObstaclesTable.Data = data;
         end
@@ -541,7 +492,7 @@ classdef QuadrotorRRTApp < matlab.apps.AppBase
         end
 
         function saveScenario(app)
-            scenario = app.collectScenario(); %#ok<NASGU>
+            scenario = app.collectScenario();
 
             [file, path] = uiputfile('scenario.mat', ...
                 'Сохранить сценарий');
