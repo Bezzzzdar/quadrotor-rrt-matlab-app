@@ -1,5 +1,5 @@
-function log = simulateOnPath(path2d, quad, ctrl, sim)
-%SIMULATEONPATH Моделирует движение квадрокоптера по найденному маршруту.
+function [log, traj] = simulateOnPath(path2d, quad, ctrl, sim)
+%SIMULATEONPATH Моделирует движение квадрокоптера по minimum-snap маршруту.
 
 traj = quadrotor.buildReferenceTrajectory(path2d, sim.vRef, sim.dt, sim.zRef);
 N = length(traj.t);
@@ -41,12 +41,15 @@ for k = 1:N
     log.motorThrusts(:, k) = motorThrusts;
     log.trackingError(k) = norm(state.x - xd);
 
-    stateDot = quadrotor.dynamics(state, input, quad);
+    if k < N
+        dtStep = traj.t(k + 1) - traj.t(k);
+        stateDot = quadrotor.dynamics(state, input, quad);
 
-    state.x = state.x + sim.dt * stateDot.x;
-    state.v = state.v + sim.dt * stateDot.v;
-    state.R = quadrotor.projectToSO3(state.R + sim.dt * stateDot.R);
-    state.Omega = state.Omega + sim.dt * stateDot.Omega;
+        state.x = state.x + dtStep * stateDot.x;
+        state.v = state.v + dtStep * stateDot.v;
+        state.R = quadrotor.projectToSO3(state.R + dtStep * stateDot.R);
+        state.Omega = state.Omega + dtStep * stateDot.Omega;
+    end
 end
 
 log.finalTrackingError = log.trackingError(end);

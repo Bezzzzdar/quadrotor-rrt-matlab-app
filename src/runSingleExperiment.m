@@ -1,5 +1,5 @@
 function result = runSingleExperiment(scenario)
-%RUNSINGLEEXPERIMENT Выполняет один запуск: RRT + сглаживание + динамика.
+%RUNSINGLEEXPERIMENT Выполняет один запуск: RRT + minimum-snap + динамика.
 
 geometry.validateScenario( ...
     scenario.map, scenario.start2d, scenario.goal2d, ...
@@ -18,7 +18,9 @@ calculationTime = toc(startTime);
 
 result.tree = tree;
 result.rawPath = path;
+result.rrtPath = [];
 result.path = [];
+result.referenceTrajectory = [];
 result.simLog = [];
 result.pathFound = ~isempty(path);
 result.calculationTime = calculationTime;
@@ -39,11 +41,13 @@ smoothPath = rrt.shortcutSmoothPath( ...
     path, scenario.map, scenario.obstacles, scenario.safetyRadius, ...
     params.collisionCheckStep, params.smoothingIterations);
 
-result.path = smoothPath;
-result.metrics = metrics.pathMetrics(smoothPath, params.densePathStep);
-result.simLog = quadrotor.simulateOnPath(smoothPath, scenario.quad, scenario.ctrl, scenario.sim);
+result.rrtPath = smoothPath;
+[result.simLog, result.referenceTrajectory] = quadrotor.simulateOnPath( ...
+    smoothPath, scenario.quad, scenario.ctrl, scenario.sim);
+result.path = result.referenceTrajectory.xd(1:2, :)';
+result.metrics = metrics.pathMetrics(result.path, params.densePathStep);
 result.summary = makeSummary(result, result.simLog);
-result.message = 'Маршрут найден, моделирование выполнено.';
+result.message = 'Маршрут найден, minimum-snap траектория построена, моделирование выполнено.';
 end
 
 function summary = makeSummary(result, simLog)

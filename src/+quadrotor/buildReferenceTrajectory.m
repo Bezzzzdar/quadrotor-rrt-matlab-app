@@ -1,44 +1,45 @@
 function traj = buildReferenceTrajectory(path2d, vRef, dt, zRef)
-%BUILDREFERENCETRAJECTORY Строит дискретную 3D-траекторию по 2D-маршруту.
+%BUILDREFERENCETRAJECTORY Строит minimum-snap 3D-траекторию по 2D-маршруту.
 
 if size(path2d, 1) < 2
     error('Для построения траектории требуется минимум две точки.');
 end
 
-points = [path2d, zRef * ones(size(path2d, 1), 1)]';
-segmentLengths = sqrt(sum(diff(points, 1, 2).^2, 1));
-segmentTimes = segmentLengths / vRef;
-
-xd = [];
-vd = [];
-ad = [];
-t = [];
-timeNow = 0;
-
-for i = 1:length(segmentLengths)
-    p1 = points(:, i);
-    p2 = points(:, i + 1);
-    T = max(segmentTimes(i), dt);
-    n = max(2, ceil(T / dt));
-    direction = (p2 - p1) / max(segmentLengths(i), eps);
-
-    for k = 0:n-1
-        tau = k / n;
-        xd = [xd, p1 + tau * (p2 - p1)]; %#ok<AGROW>
-        vd = [vd, vRef * direction]; %#ok<AGROW>
-        ad = [ad, zeros(3, 1)]; %#ok<AGROW>
-        t = [t, timeNow]; %#ok<AGROW>
-        timeNow = timeNow + dt;
-    end
+if vRef <= 0
+    error('Опорная скорость должна быть положительной.');
 end
 
-xd = [xd, points(:, end)];
-vd = [vd, zeros(3, 1)];
-ad = [ad, zeros(3, 1)];
-t = [t, timeNow];
+if dt <= 0
+    error('Шаг интегрирования должен быть положительным.');
+end
+
+if exist('minsnappolytraj', 'file') ~= 2
+    error('Функция minsnappolytraj не найдена. Требуется MATLAB toolbox с этой функцией.');
+end
+
+segmentLengths2d = sqrt(sum(diff(path2d, 1, 1).^2, 2));
+path2d = path2d([true; segmentLengths2d > eps], :);
+
+if size(path2d, 1) < 2
+    error('Для построения траектории требуется минимум две различные точки.');
+end
+
+points = [path2d, zRef * ones(size(path2d, 1), 1)]';
+segmentLengths = sqrt(sum(diff(points, 1, 2).^2, 1));
+segmentTimes = max(segmentLengths / vRef, dt);
+timePoints = [0, cumsum(segmentTimes)];
+numSamples = max(2, ceil(timePoints(end) / dt) + 1);
+
+[xd, vd, ad, jerk, snap, pp, waypointTimes, t] = minsnappolytraj( ...
+    points, timePoints, numSamples);
 
 traj.t = t;
+traj.timePoints = waypointTimes;
+traj.waypoints = points;
 traj.xd = xd;
 traj.vd = vd;
 traj.ad = ad;
+traj.jerk = jerk;
+traj.snap = snap;
+traj.pp = pp;
 end
