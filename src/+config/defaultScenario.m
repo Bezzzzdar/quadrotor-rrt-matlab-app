@@ -26,7 +26,7 @@ scenario.rrt.densePathStep = 1;
 
 scenario.sim.dt = 0.02;
 scenario.sim.vRef = 10;
-scenario.sim.zRef = 0;
+scenario.sim.zRef = 10;
 scenario.sim.maxTrackingError = 25;
 
 scenario.quad = config.defaultQuadrotor();

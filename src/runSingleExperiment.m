@@ -37,13 +37,16 @@ if isempty(path)
     return;
 end
 
-smoothPath = rrt.shortcutSmoothPath( ...
-    path, scenario.map, scenario.obstacles, scenario.safetyRadius, ...
-    params.collisionCheckStep, params.smoothingIterations);
+% smoothPath = rrt.shortcutSmoothPath( ...
+%     path, scenario.map, scenario.obstacles, scenario.safetyRadius, ...
+%     params.collisionCheckStep, params.smoothingIterations);
 
-result.rrtPath = smoothPath;
+% result.rrtPath = smoothPath;
+result.rrtPath = path;
+% [result.simLog, result.referenceTrajectory] = quadrotor.simulateOnPath( ...
+%     smoothPath, scenario.quad, scenario.ctrl, scenario.sim);
 [result.simLog, result.referenceTrajectory] = quadrotor.simulateOnPath( ...
-    smoothPath, scenario.quad, scenario.ctrl, scenario.sim);
+    path, scenario.quad, scenario.ctrl, scenario.sim);
 result.path = result.referenceTrajectory.xd(1:2, :)';
 result.metrics = metrics.pathMetrics(result.path, params.densePathStep);
 result.summary = makeSummary(result, result.simLog);

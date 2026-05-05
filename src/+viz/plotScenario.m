@@ -1,4 +1,4 @@
-function plotScenario(ax, map, obstacles, start2d, goal2d, tree, path, simLog)
+function plotScenario(ax, map, obstacles, start2d, goal2d, tree, path, simLog, rowPath)
 %PLOTSCENARIO Отображает карту, препятствия, дерево, маршрут и траекторию.
 
 cla(ax);
@@ -19,6 +19,10 @@ end
 
 plot(ax, start2d(1), start2d(2), 'go', 'MarkerSize', 8, 'LineWidth', 2);
 plot(ax, goal2d(1), goal2d(2), 'ro', 'MarkerSize', 8, 'LineWidth', 2);
+
+if ~isempty(rowPath)
+    plot(ax, rowPath(:, 1), rowPath(:, 2), 'r--', 'LineWidth', 1.5);
+end
 
 if ~isempty(path)
     plot(ax, path(:, 1), path(:, 2), 'b-', 'LineWidth', 2.5);

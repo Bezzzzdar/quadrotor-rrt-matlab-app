@@ -13,7 +13,7 @@ result = runSingleExperiment(scenario);
 disp(result.summary);
 
 figure('Name', 'Демонстрационный запуск');
-viz.plotScenario(gca, scenario.map, scenario.obstacles, scenario.start2d, scenario.goal2d, result.tree, result.path, result.simLog);
+viz.plotScenario(gca, scenario.map, scenario.obstacles, scenario.start2d, scenario.goal2d, result.tree, result.path, result.simLog, result.rawPath);
 
 if ~isempty(result.simLog)
     figure('Name', 'Ошибка слежения');
