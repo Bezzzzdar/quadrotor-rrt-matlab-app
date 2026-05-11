@@ -7,13 +7,13 @@ function stateDot = dynamics(state, input, quad)
 %   R_dot = R * hat(Omega)
 %   J * Omega_dot + Omega x J*Omega = M
 
-R = state.R;
-Omega = state.Omega;
-f = input.f;
-M = input.M;
+    R = state.R;
+    Omega = state.Omega;
+    f = input.f;
+    M = input.M;
 
-stateDot.x = state.v;
-stateDot.v = quad.g * quad.e3 - (f / quad.m) * R * quad.e3;
-stateDot.R = R * quadrotor.hatMap(Omega);
-stateDot.Omega = quad.J \ (M - cross(Omega, quad.J * Omega));
+    stateDot.x = state.v;
+    stateDot.v = quad.g * quad.e3 - (f / quad.m) * R * quad.e3;
+    stateDot.R = R * quadrotor.hatMap(Omega);
+    stateDot.Omega = quad.J \ (M - cross(Omega, quad.J * Omega));
 end
