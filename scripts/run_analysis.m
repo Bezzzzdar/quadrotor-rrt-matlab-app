@@ -9,7 +9,6 @@ if isempty(gcp('nocreate'))
     parpool;
 end
 
-
 rootDir = fileparts(fileparts(mfilename('fullpath')));
 addpath(genpath(fullfile(rootDir, 'src')));
 
@@ -59,13 +58,13 @@ function results = runRRTAnalysis(baseScenario, variants)
 %RUNRRTANALYSIS Выполняет параметрический анализ RRT.
 %
 % Для каждого значения параметра:
-%   - выполняется 100 запусков,
+%   - выполняется 10 запусков,
 %   - вычисляются средние значения,
 %   - вычисляются стандартные отклонения.
 %
 % Используется parallel computing.
 
-    runsPerValue = 100;
+    runsPerValue = 10;
 
     variantNames = fieldnames(variants);
 
@@ -86,9 +85,7 @@ function results = runRRTAnalysis(baseScenario, variants)
 
             value = paramValues(i);
 
-            fprintf( ...
-                "[%d/%d] %s = %.3f\n", ...
-                i, numel(paramValues), paramName, value);
+            fprintf("[%d/%d] %s = %.3f\n", i, numel(paramValues), paramName, value);
 
             calcTimeValues = nan(runsPerValue, 1);
             pathLengthValues = nan(runsPerValue, 1);
@@ -129,23 +126,15 @@ function results = runRRTAnalysis(baseScenario, variants)
             row = table( ...
                 value, ...
                 mean(calcTimeValues, 'omitnan'), ...
-                std(calcTimeValues, 'omitnan'), ...
                 mean(pathLengthValues, 'omitnan'), ...
-                std(pathLengthValues, 'omitnan'), ...
                 mean(maxCurvatureValues, 'omitnan'), ...
-                std(maxCurvatureValues, 'omitnan'), ...
                 mean(meanCurvatureValues, 'omitnan'), ...
-                std(meanCurvatureValues, 'omitnan'), ...
                 'VariableNames', { ...
                 'ParameterValue', ...
                 'MeanCalculationTime_s', ...
-                'StdCalculationTime_s', ...
                 'MeanPathLength_m', ...
-                'StdPathLength_m', ...
                 'MeanMaxCurvature_1_m', ...
-                'StdMaxCurvature_1_m', ...
-                'MeanMeanCurvature_1_m', ...
-                'StdMeanCurvature_1_m'});
+                'MeanMeanCurvature_1_m'});
 
             resultTable = [resultTable; row];
 
@@ -172,95 +161,52 @@ function plotRRTAnalysis(results)
 
         x = tbl.ParameterValue;
 
-        figure( ...
-            'Name', sprintf('Analysis: %s', paramName), ...
-            'NumberTitle', 'off');
-
-        sgtitle( ...
-            sprintf('Influence of parameter "%s"', paramName), ...
-            'Interpreter', 'none');
+        figure('Name', sprintf('Analysis: %s', paramName), 'NumberTitle', 'off');
+        sgtitle(sprintf('Influence of parameter "%s"', paramName));
 
         %% Calculation time
 
-        subplot(2,2,1);
-
-        errorbar( ...
-            x, ...
-            tbl.MeanCalculationTime_s, ...
-            tbl.StdCalculationTime_s, ...
-            '-', ...
-            'LineWidth', 1.5);
-
+        subplot(2, 2, 1);
+        plot(x, tbl.MeanCalculationTime_s, '-', 'LineWidth', 1.5);
         grid on;
         grid minor;
-
         xlabel(paramName);
         ylabel('t, s');
-
         title('Calculation time');
 
         %% Path length
 
-        subplot(2,2,2);
-
-        errorbar( ...
-            x, ...
-            tbl.MeanPathLength_m, ...
-            tbl.StdPathLength_m, ...
-            '-', ...
-            'LineWidth', 1.5);
-
+        subplot(2, 2, 2);
+        plot(x, tbl.MeanPathLength_m, '-', 'LineWidth', 1.5);
         grid on;
         grid minor;
-
         xlabel(paramName);
         ylabel('L, m');
-
         title('Path length');
 
         %% Maximum curvature
 
-        subplot(2,2,3);
-
-        errorbar( ...
-            x, ...
-            tbl.MeanMaxCurvature_1_m, ...
-            tbl.StdMaxCurvature_1_m, ...
-            '-', ...
-            'LineWidth', 1.5);
-
+        subplot(2, 2, 3);
+        plot(x, tbl.MeanMaxCurvature_1_m, '-', 'LineWidth', 1.5);
         grid on;
         grid minor;
-
         xlabel(paramName);
         ylabel('C, 1/m');
-
         title('Maximum curvature');
 
         %% Mean curvature
 
-        subplot(2,2,4);
-
-        errorbar( ...
-            x, ...
-            tbl.MeanMeanCurvature_1_m, ...
-            tbl.StdMeanCurvature_1_m, ...
-            '-', ...
-            'LineWidth', 1.5);
-
+        subplot(2, 2, 4);
+        plot(x, tbl.MeanMeanCurvature_1_m, '-', 'LineWidth', 1.5);
         grid on;
         grid minor;
-
         xlabel(paramName);
         ylabel('C, 1/m');
-
         title('Mean curvature');
 
-        set(findall(gcf,'-property','FontName'), ...
-            'FontName', 'Times');
-
-        set(findall(gcf,'-property','FontSize'), ...
-            'FontSize', 14);
+        set(findall(gcf,'-property','FontName'), 'FontName', 'Times');
+        set(findall(gcf,'-property','FontSize'), 'FontSize', 14);
+        set(findall(gcf,'-property','Interpreter'), 'Interpreter', 'latex');
 
     end
 
