@@ -3,6 +3,7 @@
 clear;
 clc;
 close all;
+rng(42)
 
 %% Инициализация
 if isempty(gcp('nocreate'))
@@ -36,22 +37,18 @@ results = runRRTAnalysis(baseScenario, rrtVariants);
 disp('======================================================');
 disp('STEP SIZE');
 disp(results.stepSize);
-writetable(results.stepSize, 'tableStepSize.xlsx');
 
 disp('======================================================');
 disp('GOAL BIAS');
 disp(results.goalBias);
-writetable(results.goalBias, 'tableGoalBias.xlsx');
 
 disp('======================================================');
 disp('MAX ITER');
 disp(results.maxIter);
-writetable(results.maxIter, 'tableMaxIter.xlsx');
 
 disp('======================================================');
 disp('GOAL THRESHOLD');
 disp(results.goalThreshold);
-writetable(results.goalThreshold, 'tableGoalThreshold.xlsx');
 
 % Графики
 
@@ -226,7 +223,7 @@ function addParameterAxes(results, variants, paramNames, mainPosition)
 
         ax = axes('Position', axisPosition, ...
             'Color', 'none', ...
-            'YAxisLocation', 'right', ...
+            'YAxisLocation', 'left', ...
             'YTick', [], ...
             'YColor', 'none', ...
             'XAxisLocation', axisLocations{paramIndex}, ...
