@@ -1,6 +1,5 @@
 function input = positionTrackingInput(state, xd, vd, ad, quad, ctrl)
 %POSITIONTRACKINGINPUT Формирует суммарную тягу f и момент M для слежения.
-% Регулятор нужен для численной проверки динамической реализуемости пути.
 
     ex = state.x - xd;
     ev = state.v - vd;

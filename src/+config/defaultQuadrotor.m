@@ -1,5 +1,5 @@
 function quad = defaultQuadrotor()
-%DEFAULTQUADROTOR Параметры квадрокоптера из численного примера Lee et al.
+%DEFAULTQUADROTOR Параметры квадрокоптера
 
     quad.m = 4.34;
     quad.J = diag([0.0820, 0.0845, 0.1377]);

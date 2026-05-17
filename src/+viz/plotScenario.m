@@ -10,13 +10,12 @@ function plotScenario(ax, map, obstacles, start2d, goal2d, tree, path, simLog, r
     ylim(ax, [0, map.height]);
     xlabel(ax, 'x, м');
     ylabel(ax, 'y, м');
-    % title(ax, 'Планирование маршрута мультироторного ЛА методом RRT');
 
     viz.drawObstacles(ax, obstacles);
 
     legendPatch = patch(ax, NaN, NaN, [0.35 0.35 0.35], ...
                         'EdgeColor', 'k', ...
-                        'DisplayName', 'Препятствия');
+                        'DisplayName', 'Препятствия');%#ok<NASGU>
 
     if ~isempty(tree)
         viz.plotTree(ax, tree);
@@ -38,7 +37,7 @@ function plotScenario(ax, map, obstacles, start2d, goal2d, tree, path, simLog, r
     end
 
     if ~isempty(simLog)
-        plot(ax, simLog.x(1, :), simLog.x(2, :), 'm--', 'LineWidth', 1.5, "DisplayName", "ЛА");
+        plot(ax, simLog.x(1, :), simLog.x(2, :), 'm--', 'LineWidth', 1.5, "DisplayName", "Реальная траектория движения ЛА");
     end
 
     legend(ax, "Location", "northeastoutside")

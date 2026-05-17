@@ -4,7 +4,7 @@ clear;
 clc;
 close all;
 
-%% Init
+%% Инициализация
 if isempty(gcp('nocreate'))
     parpool;
 end
@@ -14,55 +14,55 @@ addpath(genpath(fullfile(rootDir, 'src')));
 
 baseScenario = config.defaultScenario();
 
-%% Parameter ranges
-% Выберите 4 исследуемых параметра
+%% Параметры
 
-mapSize = norm(baseScenario.map.height);
+numVariants = 10;
 
-rrtVariants.stepSize = linspace(10, 100, 10);
-rrtVariants.goalBias = linspace(0.1, 1, 10);
-rrtVariants.maxIter = linspace(1000, 10000, 10);
-rrtVariants.goalThreshold = linspace(10, 100, 10);
+rrtVariants.stepSize.value = linspace(10, 100, numVariants);
+rrtVariants.stepSize.label = 'D, м';
+rrtVariants.goalBias.value = linspace(0.1, 0.5, numVariants);
+rrtVariants.goalBias.label = 'W_ц';
+rrtVariants.maxIter.value = linspace(1000, 10000, numVariants);
+rrtVariants.maxIter.label = 'I';
+rrtVariants.goalThreshold.value = linspace(1, 10, numVariants);
+rrtVariants.goalThreshold.label = 'R_д';
 
-%% Run analysis
+%% Запуск сравнения
 
 results = runRRTAnalysis(baseScenario, rrtVariants);
 
-%% Print summary tables
+%% Таблицы с результатами
 
 disp('======================================================');
 disp('STEP SIZE');
 disp(results.stepSize);
+writetable(results.stepSize, 'tableStepSize.xlsx');
 
 disp('======================================================');
 disp('GOAL BIAS');
 disp(results.goalBias);
+writetable(results.goalBias, 'tableGoalBias.xlsx');
 
 disp('======================================================');
 disp('MAX ITER');
 disp(results.maxIter);
+writetable(results.maxIter, 'tableMaxIter.xlsx');
 
 disp('======================================================');
 disp('GOAL THRESHOLD');
 disp(results.goalThreshold);
+writetable(results.goalThreshold, 'tableGoalThreshold.xlsx');
 
-%% Plot graphs
+% Графики
 
-plotRRTAnalysis(results);
+plotRRTAnalysis(results, rrtVariants);
 
 %% =======================================================================
-%% FUNCTIONS
+%% Вспомогательные функции
 %% =======================================================================
 
 function results = runRRTAnalysis(baseScenario, variants)
 %RUNRRTANALYSIS Выполняет параметрический анализ RRT.
-%
-% Для каждого значения параметра:
-%   - выполняется 10 запусков,
-%   - вычисляются средние значения,
-%   - вычисляются стандартные отклонения.
-%
-% Используется parallel computing.
 
     runsPerValue = 10;
 
@@ -73,7 +73,7 @@ function results = runRRTAnalysis(baseScenario, variants)
     for v = 1:numel(variantNames)
 
         paramName = variantNames{v};
-        paramValues = variants.(paramName);
+        paramValues = variants.(paramName).value;
 
         fprintf("\n==================================================\n");
         fprintf("Parameter: %s\n", paramName);
@@ -92,7 +92,7 @@ function results = runRRTAnalysis(baseScenario, variants)
             maxCurvatureValues = nan(runsPerValue, 1);
             meanCurvatureValues = nan(runsPerValue, 1);
 
-            %% Parallel experiments
+            %% Паралльельные эксперименты
 
             parfor k = 1:runsPerValue
                 rng('shuffle');
@@ -121,7 +121,7 @@ function results = runRRTAnalysis(baseScenario, variants)
 
             end
 
-            %% Aggregate statistics
+            %% Сбор статистик
 
             row = table( ...
                 value, ...
@@ -136,7 +136,7 @@ function results = runRRTAnalysis(baseScenario, variants)
                 'MeanMaxCurvature_1_m', ...
                 'MeanMeanCurvature_1_m'});
 
-            resultTable = [resultTable; row];
+            resultTable = [resultTable; row]; %#ok<AGROW>
 
         end
 
@@ -146,68 +146,95 @@ function results = runRRTAnalysis(baseScenario, variants)
 
 end
 
-%% =======================================================================
-
-function plotRRTAnalysis(results)
+function plotRRTAnalysis(results, variants)
 %PLOTRRTANALYSIS Строит графики анализа параметров RRT.
 
-    resultNames = fieldnames(results);
+    paramNames = fieldnames(results);
+    metrics = {
+        'MeanCalculationTime_s', 't, с', 'Время вычисления';
+        'MeanPathLength_m', 'L, м', 'Длина пути';
+        'MeanMaxCurvature_1_m', 'k_{макс}, 1/м', 'Максимальная кривизна траектории';
+        'MeanMeanCurvature_1_m', 'k_{сред}, 1/м', 'Средняя кривизна траектории'
+    };
+    colors = lines(numel(paramNames));
 
-    for i = 1:numel(resultNames)
+    for metricIndex = 1:size(metrics, 1)
+        figure('Name', metrics{metricIndex, 3}, 'NumberTitle', 'off');
 
-        paramName = resultNames{i};
+        mainPosition = [0.14, 0.36, 0.72, 0.48];
+        dataAx = axes('Position', mainPosition);
+        hold(dataAx, 'on');
+        grid(dataAx, 'on');
+        grid(dataAx, 'minor');
+        xlim(dataAx, [0, 1]);
+        ylabel(dataAx, metrics{metricIndex, 2});
+        dataAx.XTick = [];
 
-        tbl = results.(paramName);
+        legendEntries = cell(numel(paramNames), 1);
 
-        x = tbl.ParameterValue;
+        for paramIndex = 1:numel(paramNames)
+            paramName = paramNames{paramIndex};
+            tbl = results.(paramName);
+            x = normalizeParameter(tbl.ParameterValue);
+            y = tbl.(metrics{metricIndex, 1});
 
-        figure('Name', sprintf('Analysis: %s', paramName), 'NumberTitle', 'off');
-        sgtitle(sprintf('Influence of parameter "%s"', paramName));
+            plot(dataAx, x, y, '-', ...
+                'Color', colors(paramIndex, :), ...
+                'LineWidth', 1.5);
 
-        %% Calculation time
+            legendEntries{paramIndex} = variants.(paramName).label;
+        end
 
-        subplot(2, 2, 1);
-        plot(x, tbl.MeanCalculationTime_s, '-', 'LineWidth', 1.5);
-        grid on;
-        grid minor;
-        xlabel(paramName);
-        ylabel('t, s');
-        title('Calculation time');
-
-        %% Path length
-
-        subplot(2, 2, 2);
-        plot(x, tbl.MeanPathLength_m, '-', 'LineWidth', 1.5);
-        grid on;
-        grid minor;
-        xlabel(paramName);
-        ylabel('L, m');
-        title('Path length');
-
-        %% Maximum curvature
-
-        subplot(2, 2, 3);
-        plot(x, tbl.MeanMaxCurvature_1_m, '-', 'LineWidth', 1.5);
-        grid on;
-        grid minor;
-        xlabel(paramName);
-        ylabel('C, 1/m');
-        title('Maximum curvature');
-
-        %% Mean curvature
-
-        subplot(2, 2, 4);
-        plot(x, tbl.MeanMeanCurvature_1_m, '-', 'LineWidth', 1.5);
-        grid on;
-        grid minor;
-        xlabel(paramName);
-        ylabel('C, 1/m');
-        title('Mean curvature');
+        legend(dataAx, legendEntries, 'Location', 'northeast');
+        addParameterAxes(results, variants, paramNames, mainPosition);
 
         set(findall(gcf,'-property','FontName'), 'FontName', 'Times');
         set(findall(gcf,'-property','FontSize'), 'FontSize', 14);
-        set(findall(gcf,'-property','Interpreter'), 'Interpreter', 'latex');
+        set(findall(gcf,'-property','Interpreter'), 'Interpreter', 'tex');
 
+    end
+
+end
+
+function xNorm = normalizeParameter(x)
+%NORMALIZEPARAMETER Переводит значения параметра в общую координату [0, 1].
+
+    xMin = min(x);
+    xMax = max(x);
+
+    if abs(xMax - xMin) < eps
+        xNorm = zeros(size(x));
+        return;
+    end
+
+    xNorm = (x - xMin) / (xMax - xMin);
+end
+
+function addParameterAxes(results, variants, paramNames, mainPosition)
+%ADDPARAMETERAXES Добавляет четыре независимые шкалы X к одному графику.
+
+    axisLocations = repmat({'bottom'}, 1, numel(paramNames));
+    verticalOffsets = -0.08 * (0:numel(paramNames) - 1);
+
+    for paramIndex = 1:numel(paramNames)
+        paramName = paramNames{paramIndex};
+        tbl = results.(paramName);
+        xValues = tbl.ParameterValue;
+
+        axisPosition = mainPosition;
+        axisPosition(2) = axisPosition(2) + verticalOffsets(paramIndex);
+
+        ax = axes('Position', axisPosition, ...
+            'Color', 'none', ...
+            'YAxisLocation', 'right', ...
+            'YTick', [], ...
+            'YColor', 'none', ...
+            'XAxisLocation', axisLocations{paramIndex}, ...
+            'Box', 'off');
+
+        ax.XLim = [min(xValues), max(xValues)];
+        ax.XTick = linspace(min(xValues), max(xValues), 5);
+        xlabel(ax, variants.(paramName).label);
     end
 
 end

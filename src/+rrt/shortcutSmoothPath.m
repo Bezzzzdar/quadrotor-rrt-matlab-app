@@ -35,7 +35,7 @@ function smoothPath = shortcutSmoothPath(path, map, obstacles, safetyRadius, che
 end
 
 function refinedPath = insertIntermediatePoints(path, pointsPerSegment)
-%INSERTINTERMEDIATEPOINTS Inserts a fixed number of points per segment.
+%INSERTINTERMEDIATEPOINTS Добавляет точки в сегмент пути.
 
     if pointsPerSegment <= 0
         refinedPath = path;
