@@ -26,7 +26,7 @@ function plotTrajectoryDerivatives(log)
         's, м/c^4'
     };
 
-    componentNames = {'x', 'y'};
+    componentNames = {'x', 'z'};
 
     figure('Name', 'Производные фактической траектории ЛА');
 
