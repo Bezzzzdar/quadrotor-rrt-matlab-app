@@ -9,7 +9,7 @@ function plotScenario(ax, map, obstacles, start2d, goal2d, tree, path, simLog, r
     xlim(ax, [0, map.width]);
     ylim(ax, [0, map.height]);
     xlabel(ax, 'x, м');
-    ylabel(ax, 'y, м');
+    ylabel(ax, 'z, м');
 
     viz.drawObstacles(ax, obstacles);
 
