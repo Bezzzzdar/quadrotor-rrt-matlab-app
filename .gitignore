@@ -11,3 +11,4 @@ results/
 *.csv
 *.mat
 
+tests

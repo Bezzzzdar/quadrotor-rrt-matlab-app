@@ -21,6 +21,10 @@ function scenario = defaultScenario()
     scenario.rrt.smoothingIterations = 300;
     scenario.rrt.densePathStep = 1;
 
+    % Eq. (12.1), book example on p. 220: length and inverse clearance weights.
+    scenario.voronoi.k1 = 0.1;
+    scenario.voronoi.k2 = 0.9;
+
     scenario.sim.dt = 0.02;
     scenario.sim.vRef = 10;
     scenario.sim.zRef = 10;

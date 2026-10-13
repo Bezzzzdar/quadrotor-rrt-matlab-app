@@ -1,5 +1,8 @@
-function m = pathMetrics(path, denseStep)
+function m = pathMetrics(path, denseStep, trajectory)
 %PATHMETRICS Возвращает длину и кривизну геометрического пути.
+% При передаче trajectory кривизна вычисляется по полиному всей траектории.
+% Литература: https://arxiv.org/pdf/math/0606007
+% https://escholarship.org/uc/item/1p74v16x (раздел 6).
 
     if isempty(path)
         m.pathLength = NaN;
@@ -10,6 +13,12 @@ function m = pathMetrics(path, denseStep)
     end
 
     m.densePath = metrics.interpolatePath(path, denseStep);
+    if nargin >= 3
+        [m.meanCurvature, m.curvatureMeanInfo] = metrics.calculateMeanCurvature(trajectory);
+        [m.maxCurvature, m.curvatureMaxInfo] = metrics.calculateMaxCurvature(trajectory);
+        m.pathLength = m.curvatureMeanInfo.pathLength;
+        return;
+    end
     m.pathLength = metrics.calculatePathLength(m.densePath);
     curvature = metrics.calculateCurvature(m.densePath);
 

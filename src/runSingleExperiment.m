@@ -45,7 +45,7 @@ function result = runSingleExperiment(scenario)
     [result.simLog, result.referenceTrajectory] = quadrotor.simulateOnPath( ...
         smoothPath, scenario.quad, scenario.ctrl, scenario.sim);
     result.path = result.referenceTrajectory.xd(1:2, :)';
-    result.metrics = metrics.pathMetrics(result.path, params.densePathStep);
+    result.metrics = metrics.pathMetrics(result.path, params.densePathStep, result.referenceTrajectory);
     result.summary = makeSummary(result, result.simLog);
     result.message = 'Маршрут найден, minimum-snap траектория построена, моделирование выполнено.';
 end
