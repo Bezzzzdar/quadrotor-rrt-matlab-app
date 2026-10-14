@@ -8,20 +8,14 @@ function plotTree(ax, tree)
     nodes = tree.nodes;
     parents = tree.parents;
 
-    for i = 2:size(nodes, 1)
-        parentIndex = parents(i);
-        if parentIndex == 0
-            continue;
-        end
-
-        p1 = nodes(parentIndex, :);
-        p2 = nodes(i, :);
-        if (i == 2)
-            plot(ax, [p1(1), p2(1)], [p1(2), p2(2)], ...
-                'Color', "black", 'LineWidth', 0.5, "DisplayName", "RRT-дерево");
-        else
-            plot(ax, [p1(1), p2(1)], [p1(2), p2(2)], ...
-                'Color', "black", 'LineWidth', 0.5, "HandleVisibility", "off");
-        end
+    children = find(parents(:) > 0);
+    if isempty(children)
+        return;
     end
+    ancestors = parents(children);
+    % NaN разделяет рёбра в одном графическом объекте.
+    x = [nodes(ancestors, 1), nodes(children, 1), nan(numel(children), 1)]';
+    y = [nodes(ancestors, 2), nodes(children, 2), nan(numel(children), 1)]';
+    plot(ax, x(:), y(:), 'Color', 'black', 'LineWidth', 0.5, ...
+        'DisplayName', 'RRT-дерево');
 end

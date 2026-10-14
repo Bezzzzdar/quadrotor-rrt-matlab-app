@@ -1,46 +1,46 @@
-function plotTrajectoryDerivatives(log)
-%PLOTTRAJECTORYDERIVATIVES Отображает графики первых четырёх производных.
-
-    if isempty(log)
-        return;
+function plotTrajectoryDerivatives(log, axesList)
+%PLOTTRAJECTORYDERIVATIVES Рисует четыре производные по x и y на заданных осях.
+% Без второго аргумента создаётся отдельное окно для прежних вызовов.
+    if nargin < 2
+        if isempty(log)
+            return;
+        end
+        fig = figure('Name', 'Производные фактической траектории ЛА');
+        layout = tiledlayout(fig, 4, 1, 'TileSpacing', 'compact', 'Padding', 'compact');
+        axesList = gobjects(4, 1);
+        for order = 1:4
+            axesList(order) = nexttile(layout);
+        end
+    end
+    axesList = axesList(:);
+    if numel(axesList) ~= 4 || ~all(isgraphics(axesList, 'axes'))
+        error('viz:InvalidDerivativeAxes', 'Требуются четыре действующие оси графиков.');
     end
 
-    derivatives = { ...
-        log.firstDerivative, ...
-        log.secondDerivative, ...
-        log.thirdDerivative, ...
-        log.fourthDerivative
-    };
-
-    titles = { ...
-        '1-я проиводная', ...
-        '2-я проиводная', ...
-        '3-я проиводная', ...
-        '4-я проиводная'
-    };
-
-    yLabels = { ...
-        'v, м/c', ...
-        'a, м/c^2', ...
-        'j, м/c^3', ...
-        's, м/c^4'
-    };
-
-    componentNames = {'x', 'z'};
-
-    figure('Name', 'Производные фактической траектории ЛА');
-
-    for i = 1:numel(derivatives)
-        subplot(numel(derivatives), 1, i);
-        plot(log.t, derivatives{i}(1:2, :)', 'LineWidth', 1.5);
-        grid on;
-        grid minor
-        xlabel('t, с');
-        ylabel(yLabels{i});
-        title(titles{i});
-        legend(componentNames, 'Location', 'northeast');
-        set(findall(gcf,'-property','FontName'), 'FontName', 'Times')
-        set(findall(gcf,'-property','FontSize'), 'FontSize', 14)
-        set(findall(gcf,'-property','Interpreter'), 'Interpreter', 'tex')
+    derivatives = {};
+    if ~isempty(log)
+        derivatives = {log.firstDerivative, log.secondDerivative, ...
+            log.thirdDerivative, log.fourthDerivative};
+    end
+    yLabels = {'v, м/с', 'a, м/с^2', 'j, м/с^3', 's, м/с^4'};
+    for order = 1:4
+        ax = axesList(order);
+        cla(ax);
+        legend(ax, 'off');
+        if ~isempty(log)
+            tag = ax.Tag;
+            curves = plot(ax, log.t, derivatives{order}(1:2, :)', 'LineWidth', 1.3);
+            ax.Tag = tag;
+            set(curves(1), 'DisplayName', 'x');
+            set(curves(2), 'DisplayName', 'y');
+            legend(ax, 'Location', 'northeast', 'FontSize', 10);
+            xlim(ax, [log.t(1), log.t(end)]);
+        end
+        grid(ax, 'on');
+        xlabel(ax, 'Время, с');
+        ylabel(ax, yLabels{order});
+        title(ax, sprintf('%d-я производная', order));
+        ax.FontName = 'Times';
+        ax.FontSize = 11;
     end
 end

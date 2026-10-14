@@ -17,24 +17,23 @@ function segments = prepareCurvature(trajectory)
     end
     segments = repmat(struct('factor', 1, 'velocity', [], 'cross', [], ...
         'roots', [], 'multiplicities', [], 'stationary', false, ...
-        'startPoint', [], 'endPoint', [], 'startTime', 0, 'endTime', 0), pieces, 1);
+        'startTime', 0, 'endTime', 0), pieces, 1);
+    previousEndPoint = [];
     for index = 1:pieces
         rows = (index - 1) * dimension + (1:dimension);
         position = coefficients(rows, :) .* diff(breaks(index:index + 1)).^(order - 1:-1:0);
         if dimension == 2
             position(3, :) = 0;
         end
-        segments(index).startPoint = position(:, end);
-        segments(index).endPoint = sum(position, 2);
         segments(index).startTime = breaks(index);
         segments(index).endTime = breaks(index + 1);
         if index > 1
-            previous = segments(index - 1).endPoint;
-            tolerance = 1e-8 * max(1, max(abs([previous; position(:, end)])));
-            if norm(previous - position(:, end)) > tolerance
+            tolerance = 1e-8 * max(1, max(abs([previousEndPoint; position(:, end)])));
+            if norm(previousEndPoint - position(:, end)) > tolerance
                 error('metrics:DiscontinuousTrajectory', 'Полиномиальные сегменты не соединены по положению.');
             end
         end
+        previousEndPoint = sum(position, 2);
         if order == 1
             velocity = zeros(3, 1);
         else

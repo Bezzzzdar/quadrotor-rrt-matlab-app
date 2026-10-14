@@ -21,9 +21,14 @@ function scenario = defaultScenario()
     scenario.rrt.smoothingIterations = 300;
     scenario.rrt.densePathStep = 1;
 
-    % Eq. (12.1), book example on p. 220: length and inverse clearance weights.
-    scenario.voronoi.k1 = 0.1;
-    scenario.voronoi.k2 = 0.9;
+    scenario.astar.heuristicType = 'euclidean';
+    scenario.astar.heuristicWeight = 1;
+    scenario.astar.tieBreaking = 'largerg';
+
+    % При p=1 и отношении весов 9 сохраняется функция стоимости из книги.
+    scenario.voronoi.clearanceWeight = 9;
+    scenario.voronoi.clearanceExponent = 1;
+    scenario.voronoi.connectionCount = 3;
 
     scenario.sim.dt = 0.02;
     scenario.sim.vRef = 10;

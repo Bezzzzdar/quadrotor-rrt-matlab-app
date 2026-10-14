@@ -2,7 +2,6 @@ function [log, traj] = simulateOnPath(path2d, quad, ctrl, sim)
 %SIMULATEONPATH Моделирует движение квадрокоптера по minimum-snap маршруту.
 
     traj = quadrotor.buildReferenceTrajectory(path2d, sim.vRef, sim.dt, sim.zRef);
-    traj = completeReferenceDerivatives(traj);
     N = length(traj.t);
 
     state.x = traj.xd(:, 1);
@@ -24,8 +23,6 @@ function [log, traj] = simulateOnPath(path2d, quad, ctrl, sim)
     log.referenceFourthDerivative = traj.snap;
     log.firstDerivative = zeros(3, N);
     log.secondDerivative = zeros(3, N);
-    log.thirdDerivative = zeros(3, N);
-    log.fourthDerivative = zeros(3, N);
     log.R = zeros(3, 3, N);
     log.Omega = zeros(3, N);
     log.f = zeros(1, N);
@@ -76,28 +73,8 @@ function [log, traj] = simulateOnPath(path2d, quad, ctrl, sim)
                         log.finalTrackingError <= sim.maxTrackingError;
 end
 
-function traj = completeReferenceDerivatives(traj)
-%COMPLETEREFERENCEDERIVATIVES Добавляет недостающие производные траектории.
-
-    if ~isfield(traj, 'vd') || isempty(traj.vd)
-        traj.vd = differentiateSamples(traj.xd, traj.t);
-    end
-
-    if ~isfield(traj, 'ad') || isempty(traj.ad)
-        traj.ad = differentiateSamples(traj.vd, traj.t);
-    end
-
-    if ~isfield(traj, 'jerk') || isempty(traj.jerk)
-        traj.jerk = differentiateSamples(traj.ad, traj.t);
-    end
-
-    if ~isfield(traj, 'snap') || isempty(traj.snap)
-        traj.snap = differentiateSamples(traj.jerk, traj.t);
-    end
-end
-
 function derivative = differentiateSamples(values, time)
-%DIFFERENTIATESAMPLES Вычисялет производные по времени
+%DIFFERENTIATESAMPLES Вычисляет производные по времени.
 
     derivative = zeros(size(values));
 

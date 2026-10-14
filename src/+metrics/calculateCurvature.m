@@ -6,27 +6,17 @@ function curvature = calculateCurvature(path)
         return;
     end
 
-    for i = 2:size(path, 1) - 1
-        p1 = path(i - 1, :);
-        p2 = path(i, :);
-        p3 = path(i + 1, :);
-
-        a = norm(p2 - p1);
-        b = norm(p3 - p2);
-        c = norm(p3 - p1);
-
-        if a < eps || b < eps || c < eps
-            continue;
-        end
-
-        triangleArea = abs(0.5 * det([p2 - p1; p3 - p1]));
-
-        if triangleArea < eps
-            kappa = 0;
-        else
-            kappa = 4 * triangleArea / (a * b * c);
-        end
-
-        curvature = [curvature; kappa]; %#ok<AGROW>
+    incoming = path(2:end-1, :) - path(1:end-2, :);
+    outgoing = path(3:end, :) - path(2:end-1, :);
+    chord = path(3:end, :) - path(1:end-2, :);
+    a = sqrt(sum(incoming.^2, 2));
+    b = sqrt(sum(outgoing.^2, 2));
+    c = sqrt(sum(chord.^2, 2));
+    valid = a >= eps & b >= eps & c >= eps;
+    if ~any(valid)
+        return;
     end
+    area = abs(incoming(:, 1) .* chord(:, 2) - incoming(:, 2) .* chord(:, 1)) / 2;
+    curvature = 4 * area(valid) ./ (a(valid) .* b(valid) .* c(valid));
+    curvature(area(valid) < eps) = 0;
 end

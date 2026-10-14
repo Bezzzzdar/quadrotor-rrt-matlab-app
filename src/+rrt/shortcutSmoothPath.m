@@ -31,34 +31,13 @@ function smoothPath = shortcutSmoothPath(path, map, obstacles, safetyRadius, che
         end
     end
 
-    smoothPath = insertIntermediatePoints(smoothPath, 1);
+    smoothPath = insertIntermediatePoints(smoothPath);
 end
 
-function refinedPath = insertIntermediatePoints(path, pointsPerSegment)
-%INSERTINTERMEDIATEPOINTS Добавляет точки в сегмент пути.
-
-    if pointsPerSegment <= 0
-        refinedPath = path;
-        return;
-    end
-
+function refinedPath = insertIntermediatePoints(path)
+%INSERTINTERMEDIATEPOINTS Добавляет середину каждого сегмента пути.
     segmentCount = size(path, 1) - 1;
-    rowsPerSegment = pointsPerSegment + 1;
-    refinedPath = zeros(segmentCount * rowsPerSegment + 1, size(path, 2));
-
-    outRow = 1;
-    for i = 1:segmentCount
-        p1 = path(i, :);
-        p2 = path(i + 1, :);
-        refinedPath(outRow, :) = p1;
-        outRow = outRow + 1;
-
-        for k = 1:pointsPerSegment
-            t = k / (pointsPerSegment + 1);
-            refinedPath(outRow, :) = p1 + t * (p2 - p1);
-            outRow = outRow + 1;
-        end
-    end
-
-    refinedPath(outRow, :) = path(end, :);
+    refinedPath = zeros(2 * segmentCount + 1, size(path, 2));
+    refinedPath(1:2:end, :) = path;
+    refinedPath(2:2:end, :) = path(1:end-1, :) + 0.5 * diff(path, 1, 1);
 end

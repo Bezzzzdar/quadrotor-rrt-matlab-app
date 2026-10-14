@@ -10,5 +10,4 @@
 results/
 *.csv
 *.mat
-
-tests
+*.xlsx

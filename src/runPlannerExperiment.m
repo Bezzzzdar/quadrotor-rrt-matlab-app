@@ -1,5 +1,8 @@
-function result = runPlannerExperiment(scenario, plannerName)
+function result = runPlannerExperiment(scenario, plannerName, simulateDynamics)
 %RUNPLANNEREXPERIMENT Запускает планировщик и общий расчёт траектории.
+% В анализе четырёх критериев можно не рассчитывать ненужную динамику слежения.
+
+    if nargin < 3, simulateDynamics = true; end
 
     geometry.validateScenario( ...
         scenario.map, scenario.start2d, scenario.goal2d, ...
@@ -21,9 +24,12 @@ function result = runPlannerExperiment(scenario, plannerName)
             displayName = "RRT";
 
         case "astar"
+            astarParams = struct();
+            if isfield(scenario, 'astar'), astarParams = scenario.astar; end
+            astarParams.collisionCheckStep = params.collisionCheckStep;
             [path, tree] = astar.plan( ...
                 scenario.start2d, scenario.goal2d, scenario.map, ...
-                scenario.obstacles, scenario.safetyRadius, params);
+                scenario.obstacles, scenario.safetyRadius, astarParams);
             displayName = "A*";
 
         case "voronoi"
@@ -57,7 +63,7 @@ function result = runPlannerExperiment(scenario, plannerName)
         result.metrics = emptyMetrics();
         result.summary = makeSummary(result, []);
         result.message = 'Маршрут не найден.';
-        if plannerName == "voronoi"
+        if isfield(tree, 'message') && ~isempty(tree.message)
             result.message = tree.message;
         end
         return;
@@ -65,34 +71,49 @@ function result = runPlannerExperiment(scenario, plannerName)
 
     if plannerName == "rrt"
         simplifiedPath = path;
+        smoothingIterations = params.smoothingIterations;
     else
         simplifiedPath = lineOfSightSimplifyPath( ...
             path, scenario.map, scenario.obstacles, scenario.safetyRadius, ...
             params.collisionCheckStep);
+        % Для A* и Вороного сохраняем середины сегментов, но исключаем случайные сокращения.
+        smoothingIterations = 0;
     end
 
     smoothPath = rrt.shortcutSmoothPath( ...
         simplifiedPath, scenario.map, scenario.obstacles, scenario.safetyRadius, ...
-        params.collisionCheckStep, params.smoothingIterations);
+        params.collisionCheckStep, smoothingIterations);
 
     result.rrtPath = smoothPath;
-    [result.simLog, result.referenceTrajectory] = quadrotor.simulateOnPath( ...
-        smoothPath, scenario.quad, scenario.ctrl, scenario.sim);
+    if simulateDynamics
+        [result.simLog, result.referenceTrajectory] = quadrotor.simulateOnPath( ...
+            smoothPath, scenario.quad, scenario.ctrl, scenario.sim);
+    else
+        result.referenceTrajectory = quadrotor.buildReferenceTrajectory( ...
+            smoothPath, scenario.sim.vRef, scenario.sim.dt, scenario.sim.zRef);
+    end
     result.path = result.referenceTrajectory.xd(1:2, :)';
     result.metrics = metrics.pathMetrics(result.path, params.densePathStep, result.referenceTrajectory);
     result.summary = makeSummary(result, result.simLog);
-    result.message = 'Маршрут найден, minimum-snap траектория построена, моделирование выполнено.';
+    if ~simulateDynamics, result.summary.DynamicFeasible = NaN; end
+    if simulateDynamics
+        result.message = 'Маршрут найден, minimum-snap траектория построена, моделирование выполнено.';
+    else
+        result.message = 'Маршрут найден, minimum-snap траектория построена, критерии рассчитаны.';
+    end
 end
 
 function simplifiedPath = lineOfSightSimplifyPath(path, map, obstacles, safetyRadius, checkStep)
-%LINEOFSIGHTSIMPLIFYPATH Removes redundant waypoints with collision checks.
+%LINEOFSIGHTSIMPLIFYPATH Убирает избыточные точки с проверкой препятствий.
 
     if size(path, 1) <= 2
         simplifiedPath = path;
         return;
     end
 
-    simplifiedPath = path(1, :);
+    indices = zeros(size(path, 1), 1);
+    count = 1;
+    indices(count) = 1;
     currentIndex = 1;
 
     while currentIndex < size(path, 1)
@@ -107,13 +128,15 @@ function simplifiedPath = lineOfSightSimplifyPath(path, map, obstacles, safetyRa
             end
         end
 
-        simplifiedPath = [simplifiedPath; path(nextIndex, :)]; %#ok<AGROW>
+        count = count + 1;
+        indices(count) = nextIndex;
         currentIndex = nextIndex;
     end
+    simplifiedPath = path(indices(1:count), :);
 end
 
 function m = emptyMetrics()
-%EMPTYMETRICS Returns a metrics struct for failed planning runs.
+%EMPTYMETRICS Возвращает метрики при отсутствии маршрута.
 
     m = struct( ...
         'pathLength', NaN, ...
@@ -123,7 +146,7 @@ function m = emptyMetrics()
 end
 
 function summary = makeSummary(result, simLog)
-%MAKESUMMARY Builds one result table row.
+%MAKESUMMARY Формирует строку таблицы результатов.
 
     if isempty(simLog)
         dynamicFeasible = false;

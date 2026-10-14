@@ -1,237 +1,69 @@
-% RUN_ANALYSIS Параметрический анализ RRT
+%RUN_ANALYSIS Параллельный параметрический анализ RRT, A* и Вороного.
 
 clear;
 clc;
 close all;
-rng(42)
-
-%% Инициализация
-if isempty(gcp('nocreate'))
-    parpool;
-end
 
 rootDir = fileparts(fileparts(mfilename('fullpath')));
 addpath(genpath(fullfile(rootDir, 'src')));
-
 baseScenario = config.defaultScenario();
 
-%% Параметры
-
 numVariants = 10;
+runsPerValue = 10;
+seedBase = 42;
 
-rrtVariants.stepSize.value = linspace(10, 100, numVariants);
-rrtVariants.stepSize.label = 'D, м';
-rrtVariants.goalBias.value = linspace(0.1, 0.5, numVariants);
-rrtVariants.goalBias.label = 'W_ц';
-rrtVariants.maxIter.value = linspace(1000, 10000, numVariants);
-rrtVariants.maxIter.label = 'I';
-rrtVariants.goalThreshold.value = linspace(1, 10, numVariants);
-rrtVariants.goalThreshold.label = 'R_д';
+% Меняются только параметры метода; карта и параметры траектории неизменны.
+variants.rrt.stepSize = struct('value', linspace(10, 100, numVariants), 'label', 'Шаг D, м');
+variants.rrt.goalBias = struct('value', linspace(0.1, 0.5, numVariants), 'label', 'Вероятность цели W');
+variants.rrt.maxIter = struct('value', round(linspace(1000, 10000, numVariants)), 'label', 'Лимит итераций I');
 
-%% Запуск сравнения
+variants.astar.heuristicType = struct('value', ["euclidean", "octile"], ...
+    'label', 'Тип эвристики', 'tickLabels', {{'Евклидова', 'Октильная'}});
+variants.astar.heuristicWeight = struct('value', linspace(0.25, 1, numVariants), 'label', 'Вес эвристики w');
+variants.astar.tieBreaking = struct('value', ["largerg", "smallerg"], ...
+    'label', 'Равные приоритеты', 'tickLabels', {{'Больший g', 'Меньший g'}});
 
-results = runRRTAnalysis(baseScenario, rrtVariants);
+variants.voronoi.clearanceWeight = struct('value', logspace(0, 2, numVariants), ...
+    'label', 'Вес отступа \lambda (лог.)', 'scale', 'log');
+variants.voronoi.clearanceExponent = struct('value', linspace(0.5, 2, numVariants), 'label', 'Степень штрафа p');
+variants.voronoi.connectionCount = struct('value', 1:numVariants, 'label', 'Число подключений K');
 
-%% Таблицы с результатами
+% Три parfeval-задачи запускают три цикла анализа одновременно, без вложенных parfor.
+results = analysis.runParallel(baseScenario, variants, runsPerValue, seedBase);
 
-disp('======================================================');
-disp('STEP SIZE');
-disp(results.stepSize);
-
-disp('======================================================');
-disp('GOAL BIAS');
-disp(results.goalBias);
-
-disp('======================================================');
-disp('MAX ITER');
-disp(results.maxIter);
-
-disp('======================================================');
-disp('GOAL THRESHOLD');
-disp(results.goalThreshold);
-
-% Графики
-
-plotRRTAnalysis(results, rrtVariants);
-
-%% =======================================================================
-%% Вспомогательные функции
-%% =======================================================================
-
-function results = runRRTAnalysis(baseScenario, variants)
-%RUNRRTANALYSIS Выполняет параметрический анализ RRT.
-
-    runsPerValue = 10;
-
-    variantNames = fieldnames(variants);
-
-    results = struct();
-
-    for v = 1:numel(variantNames)
-
-        paramName = variantNames{v};
-        paramValues = variants.(paramName).value;
-
-        fprintf("\n==================================================\n");
-        fprintf("Parameter: %s\n", paramName);
-        fprintf("==================================================\n");
-
-        resultTable = table();
-
-        for i = 1:numel(paramValues)
-
-            value = paramValues(i);
-
-            fprintf("[%d/%d] %s = %.3f\n", i, numel(paramValues), paramName, value);
-
-            calcTimeValues = nan(runsPerValue, 1);
-            pathLengthValues = nan(runsPerValue, 1);
-            maxCurvatureValues = nan(runsPerValue, 1);
-            meanCurvatureValues = nan(runsPerValue, 1);
-
-            %% Паралльельные эксперименты
-
-            parfor k = 1:runsPerValue
-                rng('shuffle');
-                scenario = baseScenario;
-
-                % Меняем только один параметр
-                scenario.rrt.(paramName) = value;
-
-                try
-
-                    result = runSingleExperiment(scenario);
-
-                    metrics = result.metrics;
-
-                    calcTimeValues(k) = result.calculationTime;
-                    pathLengthValues(k) = metrics.pathLength;
-                    maxCurvatureValues(k) = metrics.maxCurvature;
-                    meanCurvatureValues(k) = metrics.meanCurvature;
-
-                catch
-
-                    % parfor плохо работает с warning/spam output
-                    % просто оставляем NaN
-
-                end
-
-            end
-
-            %% Сбор статистик
-
-            row = table( ...
-                value, ...
-                mean(calcTimeValues, 'omitnan'), ...
-                mean(pathLengthValues, 'omitnan'), ...
-                mean(maxCurvatureValues, 'omitnan'), ...
-                mean(meanCurvatureValues, 'omitnan'), ...
-                'VariableNames', { ...
-                'ParameterValue', ...
-                'MeanCalculationTime_s', ...
-                'MeanPathLength_m', ...
-                'MeanMaxCurvature_1_m', ...
-                'MeanMeanCurvature_1_m'});
-
-            resultTable = [resultTable; row]; %#ok<AGROW>
-
-        end
-
-        results.(paramName) = resultTable;
-
+methods = {'rrt', 'astar', 'voronoi'};
+displayNames = {'RRT', 'A*', 'Вороной'};
+for methodIndex = 1:3
+    method = methods{methodIndex};
+    disp('======================================================');
+    disp(displayNames{methodIndex});
+    names = fieldnames(variants.(method));
+    for parameter = 1:numel(names)
+        disp(variants.(method).(names{parameter}).label);
+        disp(results.(method).tables.(names{parameter}));
     end
-
+    viz.plotPlannerAnalysis(results.(method), variants.(method), displayNames{methodIndex});
 end
 
-function plotRRTAnalysis(results, variants)
-%PLOTRRTANALYSIS Строит графики анализа параметров RRT.
+resultDir = fullfile(rootDir, 'results');
+if ~isfolder(resultDir), mkdir(resultDir); end
+save(fullfile(resultDir, 'planner_analysis.mat'), ...
+    'baseScenario', 'variants', 'runsPerValue', 'seedBase', 'results');
 
-    paramNames = fieldnames(results);
-    metrics = {
-        'MeanCalculationTime_s', 't, с', 'Время вычисления';
-        'MeanPathLength_m', 'L, м', 'Длина пути';
-        'MeanMaxCurvature_1_m', 'k_{макс}, 1/м', 'Максимальная кривизна траектории';
-        'MeanMeanCurvature_1_m', 'k_{сред}, 1/м', 'Средняя кривизна траектории'
-    };
-    colors = lines(numel(paramNames));
-
-    for metricIndex = 1:size(metrics, 1)
-        figure('Name', metrics{metricIndex, 3}, 'NumberTitle', 'off');
-
-        mainPosition = [0.14, 0.36, 0.72, 0.48];
-        dataAx = axes('Position', mainPosition);
-        hold(dataAx, 'on');
-        grid(dataAx, 'on');
-        grid(dataAx, 'minor');
-        xlim(dataAx, [0, 1]);
-        ylabel(dataAx, metrics{metricIndex, 2});
-        dataAx.XTick = [];
-
-        legendEntries = cell(numel(paramNames), 1);
-
-        for paramIndex = 1:numel(paramNames)
-            paramName = paramNames{paramIndex};
-            tbl = results.(paramName);
-            x = normalizeParameter(tbl.ParameterValue);
-            y = tbl.(metrics{metricIndex, 1});
-
-            plot(dataAx, x, y, '-', ...
-                'Color', colors(paramIndex, :), ...
-                'LineWidth', 1.5);
-
-            legendEntries{paramIndex} = variants.(paramName).label;
-        end
-
-        legend(dataAx, legendEntries, 'Location', 'northeast');
-        addParameterAxes(results, variants, paramNames, mainPosition);
-
-        set(findall(gcf,'-property','FontName'), 'FontName', 'Times');
-        set(findall(gcf,'-property','FontSize'), 'FontSize', 14);
-        set(findall(gcf,'-property','Interpreter'), 'Interpreter', 'tex');
-
+% Итоговые таблицы каждого метода сохраняются в отдельную книгу Excel.
+for methodIndex = 1:numel(methods)
+    method = methods{methodIndex};
+    excelFile = fullfile(resultDir, ['analysis_', method, '.xlsx']);
+    names = fieldnames(results.(method).tables);
+    for parameter = 1:numel(names)
+        name = names{parameter};
+        parameterLabel = strrep(variants.(method).(name).label, '\lambda', 'λ');
+        heading = ['Параметр: ', parameterLabel, ' (', name, ')'];
+        writeMode = 'overwritesheet';
+        if parameter == 1, writeMode = 'replacefile'; end
+        writetable(results.(method).tables.(name), excelFile, ...
+            'Sheet', name, 'Range', 'A3', 'WriteMode', writeMode, 'UseExcel', false);
+        writecell({heading}, excelFile, 'Sheet', name, 'Range', 'A1', ...
+            'WriteMode', 'inplace', 'UseExcel', false);
     end
-
-end
-
-function xNorm = normalizeParameter(x)
-%NORMALIZEPARAMETER Переводит значения параметра в общую координату [0, 1].
-
-    xMin = min(x);
-    xMax = max(x);
-
-    if abs(xMax - xMin) < eps
-        xNorm = zeros(size(x));
-        return;
-    end
-
-    xNorm = (x - xMin) / (xMax - xMin);
-end
-
-function addParameterAxes(results, variants, paramNames, mainPosition)
-%ADDPARAMETERAXES Добавляет четыре независимые шкалы X к одному графику.
-
-    axisLocations = repmat({'bottom'}, 1, numel(paramNames));
-    verticalOffsets = -0.08 * (0:numel(paramNames) - 1);
-
-    for paramIndex = 1:numel(paramNames)
-        paramName = paramNames{paramIndex};
-        tbl = results.(paramName);
-        xValues = tbl.ParameterValue;
-
-        axisPosition = mainPosition;
-        axisPosition(2) = axisPosition(2) + verticalOffsets(paramIndex);
-
-        ax = axes('Position', axisPosition, ...
-            'Color', 'none', ...
-            'YAxisLocation', 'left', ...
-            'YTick', [], ...
-            'YColor', 'none', ...
-            'XAxisLocation', axisLocations{paramIndex}, ...
-            'Box', 'off');
-
-        ax.XLim = [min(xValues), max(xValues)];
-        ax.XTick = linspace(min(xValues), max(xValues), 5);
-        xlabel(ax, variants.(paramName).label);
-    end
-
 end

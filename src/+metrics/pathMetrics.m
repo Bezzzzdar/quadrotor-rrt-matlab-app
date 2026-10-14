@@ -14,8 +14,9 @@ function m = pathMetrics(path, denseStep, trajectory)
 
     m.densePath = metrics.interpolatePath(path, denseStep);
     if nargin >= 3
-        [m.meanCurvature, m.curvatureMeanInfo] = metrics.calculateMeanCurvature(trajectory);
-        [m.maxCurvature, m.curvatureMaxInfo] = metrics.calculateMaxCurvature(trajectory);
+        segments = prepareCurvature(trajectory);
+        [m.meanCurvature, m.curvatureMeanInfo] = meanCurvatureFromSegments(segments);
+        [m.maxCurvature, m.curvatureMaxInfo] = maxCurvatureFromSegments(segments);
         m.pathLength = m.curvatureMeanInfo.pathLength;
         return;
     end
