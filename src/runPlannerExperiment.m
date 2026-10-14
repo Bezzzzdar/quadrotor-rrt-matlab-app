@@ -1,4 +1,4 @@
-function result = runPlannerExperiment(scenario, plannerName, simulateDynamics)
+function result = runPlannerExperiment(scenario, plannerName, simulateDynamics, planned)
 %RUNPLANNEREXPERIMENT Запускает планировщик и общий расчёт траектории.
 % В анализе четырёх критериев можно не рассчитывать ненужную динамику слежения.
 
@@ -15,37 +15,15 @@ function result = runPlannerExperiment(scenario, plannerName, simulateDynamics)
 
     plannerName = lower(string(plannerName));
 
-    startTime = tic;
-    switch plannerName
-        case "rrt"
-            [path, tree] = rrt.plan( ...
-                scenario.start2d, scenario.goal2d, scenario.map, ...
-                scenario.obstacles, scenario.safetyRadius, params);
-            displayName = "RRT";
-
-        case "astar"
-            astarParams = struct();
-            if isfield(scenario, 'astar'), astarParams = scenario.astar; end
-            astarParams.collisionCheckStep = params.collisionCheckStep;
-            [path, tree] = astar.plan( ...
-                scenario.start2d, scenario.goal2d, scenario.map, ...
-                scenario.obstacles, scenario.safetyRadius, astarParams);
-            displayName = "A*";
-
-        case "voronoi"
-            voronoiParams = struct();
-            if isfield(scenario, 'voronoi')
-                voronoiParams = scenario.voronoi;
-            end
-            [path, tree] = voronoi.plan( ...
-                scenario.start2d, scenario.goal2d, scenario.map, ...
-                scenario.obstacles, scenario.safetyRadius, voronoiParams);
-            displayName = "GVD Voronoi";
-
-        otherwise
-            error('Unknown planner "%s".', plannerName);
+    if nargin < 4
+        planned = planGeometricPath(scenario, plannerName);
+    elseif ~strcmp(planned.plannerName, plannerName)
+        error('planning:PlannerMismatch', 'Готовый маршрут относится к другому планировщику.');
     end
-    calculationTime = toc(startTime);
+    path = planned.path;
+    tree = planned.tree;
+    displayName = planned.displayName;
+    calculationTime = planned.calculationTime;
 
     result.plannerName = char(plannerName);
     result.displayName = char(displayName);
