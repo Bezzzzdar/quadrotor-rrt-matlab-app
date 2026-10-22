@@ -36,9 +36,9 @@ end
 
 function testExactCollisionBetweenSamples(testCase)
     map = struct('width', 10, 'height', 10, 'resolution', 1);
-    verifyFalse(testCase, voronoi.isSegmentFree([0, 5], [10, 5], map, [4.1, 4, 0.1, 2], 0));
-    verifyFalse(testCase, voronoi.isSegmentFree([0, 4], [10, 4], map, [4, 4, 2, 2], 0));
-    verifyTrue(testCase, voronoi.isSegmentFree([0, 3], [10, 3], map, [4, 4, 2, 2], 0));
+    verifyFalse(testCase, geometry.isSegmentCollisionFree([0, 5], [10, 5], map, [4.1, 4, 0.1, 2], 0));
+    verifyFalse(testCase, geometry.isSegmentCollisionFree([0, 4], [10, 4], map, [4, 4, 2, 2], 0));
+    verifyTrue(testCase, geometry.isSegmentCollisionFree([0, 3], [10, 3], map, [4, 4, 2, 2], 0));
 end
 
 function testDefaultScenarioGraphAndRoute(testCase)
@@ -61,12 +61,12 @@ function testDefaultScenarioGraphAndRoute(testCase)
     end
     for index = 1:size(roadmap.edges, 1)
         edge = roadmap.nodes(roadmap.edges(index, :), :);
-        assert(voronoi.isSegmentFree(edge(1, :), edge(2, :), ...
+        assert(geometry.isSegmentCollisionFree(edge(1, :), edge(2, :), ...
             scenario.map, scenario.obstacles, scenario.safetyRadius));
     end
     for index = 1:size(route, 1) - 1
         assert(geometry.isSegmentCollisionFree(route(index, :), route(index + 1, :), ...
-            scenario.map, scenario.obstacles, scenario.safetyRadius, scenario.rrt.collisionCheckStep));
+            scenario.map, scenario.obstacles, scenario.safetyRadius));
     end
     verifyEqual(testCase, sum(routeCosts(route, roadmap)), roadmap.pathCost, 'AbsTol', 1e-8);
 end

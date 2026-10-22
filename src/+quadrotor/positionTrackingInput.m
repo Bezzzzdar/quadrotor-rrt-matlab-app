@@ -1,5 +1,5 @@
 function input = positionTrackingInput(state, xd, vd, ad, quad, ctrl)
-%POSITIONTRACKINGINPUT Формирует суммарную тягу f и момент M для слежения.
+%POSITIONTRACKINGINPUT Формирует момент M по ошибкам положения и скорости.
 
     ex = state.x - xd;
     ev = state.v - vd;
@@ -28,9 +28,5 @@ function input = positionTrackingInput(state, xd, vd, ad, quad, ctrl)
     eOmega = state.Omega;
     M = -ctrl.kR * eR - ctrl.kOmega * eOmega + cross(state.Omega, quad.J * state.Omega);
 
-    input.f = f;
     input.M = M;
-    input.Rc = Rc;
-    input.ex = ex;
-    input.ev = ev;
 end

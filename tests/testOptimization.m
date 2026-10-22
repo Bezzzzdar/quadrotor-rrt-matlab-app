@@ -17,8 +17,8 @@ function teardownOnce(testCase)
     rng(testCase.TestData.rng);
 end
 
-function testSampledCollisionEquivalence(testCase)
-%TESTSAMPLEDCOLLISIONEQUIVALENCE Сравнивает пакетную проверку с прежним циклом.
+function testExactCollisionMatchesPolynomialCheck(testCase)
+%TESTEXACTCOLLISIONMATCHESPOLYNOMIALCHECK Сопоставляет две независимые проверки отрезка.
     rng(27);
     map = struct('width', 100, 'height', 90);
     obstacles = [20, 30, 15, 20; 70, 5, 5, 20];
@@ -26,36 +26,27 @@ function testSampledCollisionEquivalence(testCase)
     for i = 1:2:size(points, 1)
         a = points(i, :);
         b = points(i+1, :);
-        for step = [0.5, 3, 200]
-            n = max(2, ceil(norm(b-a)/step));
-            expected = true;
-            for k = 0:n
-                point = a + (k/n)*(b-a);
-                if ~geometry.isPointInsideMap(point, map) || ...
-                        geometry.isPointInObstacles(point, obstacles, 2)
-                    expected = false;
-                    break;
-                end
-            end
-            verifyEqual(testCase, geometry.isSegmentCollisionFree(a, b, map, obstacles, 2, step), expected);
-        end
+        pp = mkpp([0, 1], [b(1)-a(1), a(1); b(2)-a(2), a(2)], 2);
+        expected = geometry.isPolynomialTrajectoryFree(pp, map, obstacles, 2);
+        verifyEqual(testCase, geometry.isSegmentCollisionFree(a, b, map, obstacles, 2), expected);
     end
 end
 
-function testInterpolationEquivalence(testCase)
-%TESTINTERPOLATIONEQUIVALENCE Сохраняет точки, порядок и повторяющиеся вершины.
+function testPolylineLength(testCase)
+%TESTPOLYLINELENGTH Проверяет длину исходного маршрута без уплотнения и дублирования точек.
     points = [0, 0; 3, 4; 3, 4; 3, 9];
-    expected = [0, 0; 1.5, 2; 3, 4; 3, 4; 3, 4; 3, 6.5; 3, 9];
-    verifyEqual(testCase, metrics.interpolatePath(points, 3), expected);
-    verifyEqual(testCase, metrics.interpolatePath(points(1, :), 3), points(1, :));
-    verifyEmpty(testCase, metrics.interpolatePath([], 3));
+    verifyEqual(testCase, metrics.calculatePathLength(points), 10);
+    verifyEqual(testCase, metrics.calculatePathLength(points(1, :)), 0);
+    verifyEqual(testCase, metrics.calculatePathLength([]), 0);
+    verifyEqual(testCase, metrics.calculatePathLength([0, 0, 0; 0, 3, 4]), 5);
 end
 
-function testDiscreteCurvature(testCase)
-%TESTDISCRETECURVATURE Проверяет окружность, прямую и совпадающие точки.
-    verifyEqual(testCase, metrics.calculateCurvature([1, 0; 0, 1; -1, 0]), 1, 'AbsTol', 1e-14);
-    verifyEqual(testCase, metrics.calculateCurvature([0, 0; 1, 0; 2, 0]), 0);
-    verifyEqual(testCase, metrics.calculateCurvature([0, 0; 0, 0; 2, 0]), []);
+function testEmptyTrajectoryMetrics(testCase)
+%TESTEMPTYTRAJECTORYMETRICS Отсутствие траектории не подменяется нулевыми критериями.
+    actual = metrics.pathMetrics([]);
+    verifyTrue(testCase, isnan(actual.pathLength));
+    verifyTrue(testCase, isnan(actual.maxCurvature));
+    verifyTrue(testCase, isnan(actual.meanCurvature));
 end
 
 function testMotorMixerEquivalence(testCase)
@@ -90,11 +81,11 @@ function testAStarBlockedAndOffGridEndpoints(testCase)
     verifyEmpty(testCase, points);
     verifyNotEmpty(testCase, search.message);
     verifyEmpty(testCase, astar.plan([-1, 0], [10, 10], map, zeros(0, 4), 0, struct()));
-    params = struct('collisionCheckStep', 0.01);
-    [points, search] = astar.plan([0.49, 0.49], [2, 0], map, ...
-        [0.65, 0.1, 0.1, 0.35], 0, params);
-    verifyEmpty(testCase, points);
-    verifyNotEmpty(testCase, search.message);
+    points = astar.plan([0.49, 0.49], [2, 0], map, ...
+        [0.65, 0.1, 0.1, 0.35], 0, struct());
+    verifyNotEmpty(testCase, points);
+    verifyEqual(testCase, points(1, :), [0.49, 0.49]);
+    verifyTrue(testCase, geometry.isPathCollisionFree(points, map, [0.65, 0.1, 0.1, 0.35], 0));
 end
 
 function testAStarShortBoundaryStepAndSameCell(testCase)
@@ -102,25 +93,6 @@ function testAStarShortBoundaryStepAndSameCell(testCase)
     map = struct('width', 2.6, 'height', 2.6, 'resolution', 1);
     points = astar.plan([2.55, 2.55], [2.6, 2.6], map, zeros(0, 4), 0, struct());
     verifyEqual(testCase, points, [2.55, 2.55; 2.6, 2.6]);
-end
-
-function testSingleExperimentCompatibility(testCase)
-%TESTSINGLEEXPERIMENTCOMPATIBILITY Сохраняет формат старого запуска эксперимента.
-    assumeTrue(testCase, exist('minsnappolytraj', 'file') == 2);
-    scenario = config.defaultScenario();
-    scenario.start2d = [10, 10];
-    scenario.goal2d = [30, 30];
-    scenario.obstacles = zeros(0, 4);
-    scenario.rrt.goalBias = 1;
-    scenario.rrt.maxIter = 2;
-    rng(37);
-    expected = runPlannerExperiment(scenario, 'rrt');
-    rng(37);
-    actual = runSingleExperiment(scenario);
-    verifyEqual(testCase, fieldnames(actual), fieldnames(rmfield(expected, {'plannerName', 'displayName'})));
-    verifyEqual(testCase, actual.path, expected.path);
-    verifyEqual(testCase, actual.metrics, expected.metrics);
-    verifyEqual(testCase, actual.simLog, expected.simLog);
 end
 
 function testNonRRTDoesNotUseRandomShortcuts(testCase)
@@ -133,7 +105,7 @@ function testNonRRTDoesNotUseRandomShortcuts(testCase)
         actual = runPlannerExperiment(scenario, planner{1});
         verifyEqual(testCase, rng, initialRandomState);
         assertTrue(testCase, actual.pathFound);
-        points = actual.rrtPath;
+        points = actual.processedPath;
         verifyEqual(testCase, mod(size(points, 1), 2), 1);
         verifyEqual(testCase, points(2:2:end, :), ...
             points(1:2:end-2, :) + 0.5*(points(3:2:end, :) - points(1:2:end-2, :)));
@@ -142,7 +114,7 @@ function testNonRRTDoesNotUseRandomShortcuts(testCase)
         rng(99);
         expected = runPlannerExperiment(withoutShortcuts, planner{1});
         verifyEqual(testCase, actual.rawPath, expected.rawPath);
-        verifyEqual(testCase, actual.rrtPath, expected.rrtPath);
+        verifyEqual(testCase, actual.processedPath, expected.processedPath);
         verifyEqual(testCase, actual.referenceTrajectory.pp, expected.referenceTrajectory.pp);
         verifyEqual(testCase, actual.metrics, expected.metrics);
     end
@@ -157,12 +129,12 @@ function testRRTRetainsRandomShortcuts(testCase)
     rawPath = rrt.plan(scenario.start2d, scenario.goal2d, scenario.map, ...
         scenario.obstacles, scenario.safetyRadius, params);
     expected = rrt.shortcutSmoothPath(rawPath, scenario.map, scenario.obstacles, ...
-        scenario.safetyRadius, params.collisionCheckStep, params.smoothingIterations);
+        scenario.safetyRadius, params.smoothingIterations);
     expectedRandomState = rng;
     rng(121314);
     actual = runPlannerExperiment(scenario, 'rrt');
     verifyEqual(testCase, actual.rawPath, rawPath);
-    verifyEqual(testCase, actual.rrtPath, expected);
+    verifyEqual(testCase, actual.processedPath, expected);
     verifyEqual(testCase, rng, expectedRandomState);
 end
 
@@ -171,8 +143,7 @@ function testSharedCurvaturePreparation(testCase)
 % Формулы: https://arxiv.org/pdf/math/0606007
 % Поиск экстремумов: https://escholarship.org/uc/item/1p74v16x
     trajectory = mkpp([0, 1], [0, 1, 0; 1, 0, 0], 2);
-    points = ppval(trajectory, linspace(0, 1, 11))';
-    actual = metrics.pathMetrics(points, 0.1, trajectory);
+    actual = metrics.pathMetrics(trajectory);
     [meanValue, meanInfo] = metrics.calculateMeanCurvature(trajectory);
     [maxValue, maxInfo] = metrics.calculateMaxCurvature(trajectory);
     verifyEqual(testCase, actual.meanCurvature, meanValue);

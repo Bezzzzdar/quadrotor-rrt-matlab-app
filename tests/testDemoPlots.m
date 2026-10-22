@@ -69,7 +69,7 @@ end
 function testFailedPlannerKeepsEmptyDiagnostics(testCase)
 %TESTFAILEDPLANNERKEEPSEMPTYDIAGNOSTICS Сохраняет шесть графиков при отказе поиска.
     result = struct('displayName', 'Нет маршрута', 'tree', [], 'path', [], ...
-        'simLog', [], 'rawPath', [], 'rrtPath', []);
+        'simLog', [], 'rawPath', [], 'processedPath', []);
     fig = viz.plotPlannerResult(config.defaultScenario(), result);
     verifyNumElements(testCase, findall(groot, 'Type', 'figure'), 1);
     verifyNumElements(testCase, findobj(fig, 'Type', 'axes'), 6);

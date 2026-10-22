@@ -1,6 +1,11 @@
 function [path, tree] = plan(start2d, goal2d, map, obstacles, safetyRadius, params)
 %PLAN Строит геометрический маршрут методом RRT.
 
+    if isequal(start2d, goal2d)
+        path = start2d;
+        tree = struct('nodes', start2d, 'parents', 0);
+        return;
+    end
     nodes = zeros(params.maxIter + 2, 2);
     parents = zeros(params.maxIter + 2, 1);
     nodes(1, :) = start2d;
@@ -26,7 +31,7 @@ function [path, tree] = plan(start2d, goal2d, map, obstacles, safetyRadius, para
             continue;
         end
 
-        if ~geometry.isSegmentCollisionFree(nearestNode, newNode, map, obstacles, safetyRadius, params.collisionCheckStep)
+        if ~geometry.isSegmentCollisionFree(nearestNode, newNode, map, obstacles, safetyRadius)
             continue;
         end
 
@@ -36,7 +41,7 @@ function [path, tree] = plan(start2d, goal2d, map, obstacles, safetyRadius, para
         newIndex = nodeCount;
 
         if norm(newNode - goal2d) <= params.goalThreshold
-            if geometry.isSegmentCollisionFree(newNode, goal2d, map, obstacles, safetyRadius, params.collisionCheckStep)
+            if geometry.isSegmentCollisionFree(newNode, goal2d, map, obstacles, safetyRadius)
                 nodeCount = nodeCount + 1;
                 nodes(nodeCount, :) = goal2d;
                 parents(nodeCount) = newIndex;

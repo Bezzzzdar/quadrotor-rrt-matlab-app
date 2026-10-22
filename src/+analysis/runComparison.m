@@ -148,13 +148,10 @@ function [record, stored] = finishTrial(record, planned, scenario)
     validationStart = tic;
     rawFree = norm(planned.path(1, :)-scenario.start2d) < 1e-8 && ...
         norm(planned.path(end, :)-scenario.goal2d) < 1e-8;
-    for index = 1:max(1, size(planned.path, 1)-1)
-        next = min(index+1, size(planned.path, 1));
-        rawFree = rawFree && voronoi.isSegmentFree(planned.path(index, :), ...
-            planned.path(next, :), scenario.map, scenario.obstacles, scenario.safetyRadius);
-    end
+    rawFree = rawFree && geometry.isPathCollisionFree(planned.path, ...
+        scenario.map, scenario.obstacles, scenario.safetyRadius);
     record.ValidationTime_s = toc(validationStart);
-    record.RawPathLength_m = sum(vecnorm(diff(planned.path, 1, 1), 2, 2));
+    record.RawPathLength_m = metrics.calculatePathLength(planned.path);
     if ~rawFree
         record.Status = "invalid_path";
         record.Message = "Недопустимый исходный геометрический путь.";
@@ -165,16 +162,14 @@ function [record, stored] = finishTrial(record, planned, scenario)
     postStart = tic;
     try
         experiment = runPlannerExperiment(scenario, planned.plannerName, false, planned);
-        record.PostprocessingTime_s = toc(postStart);
+        record.PostprocessingTime_s = max(0, toc(postStart) - experiment.validationTime);
+        record.ValidationTime_s = record.ValidationTime_s + experiment.validationTime;
         stored.pp = experiment.referenceTrajectory.pp;
-        validationStart = tic;
-        [free, stored.validation] = geometry.isPolynomialTrajectoryFree(stored.pp, ...
-            scenario.map, scenario.obstacles, scenario.safetyRadius);
-        record.ValidationTime_s = record.ValidationTime_s+toc(validationStart);
+        stored.validation = experiment.trajectoryValidation;
         record.PipelineTime_s = record.CalculationTime_s+record.PostprocessingTime_s+record.ValidationTime_s;
-        if ~free
-            record.Status = "invalid_trajectory";
-            record.Message = string(stored.validation.message);
+        if ~experiment.pathFound
+            record.Status = string(experiment.status);
+            record.Message = string(experiment.message);
             return;
         end
         record.Status = "solved";

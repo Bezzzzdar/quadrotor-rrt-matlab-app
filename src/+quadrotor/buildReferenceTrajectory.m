@@ -5,17 +5,10 @@ function traj = buildReferenceTrajectory(path2d, vRef, dt, zRef)
 % Литература: https://groups.csail.mit.edu/rrg/papers/Richter_ISRR13.pdf
 % Граничные условия: https://www.mathworks.com/help/fusion/ref/minsnappolytraj.html
 
-    if size(path2d, 1) < 2
-        error('Для построения траектории требуется минимум две точки.');
-    end
-
-    if vRef <= 0
-        error('Опорная скорость должна быть положительной.');
-    end
-
-    if dt <= 0
-        error('Шаг интегрирования должен быть положительным.');
-    end
+    validateattributes(path2d, {'numeric'}, {'2d', 'real', 'finite', 'ncols', 2, 'nonempty'});
+    validateattributes(vRef, {'numeric'}, {'scalar', 'real', 'finite', 'positive'});
+    validateattributes(dt, {'numeric'}, {'scalar', 'real', 'finite', 'positive'});
+    validateattributes(zRef, {'numeric'}, {'scalar', 'real', 'finite'});
 
     if exist('minsnappolytraj', 'file') ~= 2
         error('Функция minsnappolytraj не найдена. Требуется MATLAB toolbox с этой функцией.');
@@ -24,12 +17,13 @@ function traj = buildReferenceTrajectory(path2d, vRef, dt, zRef)
     segmentLengths2d = sqrt(sum(diff(path2d, 1, 1).^2, 2));
     path2d = path2d([true; segmentLengths2d > eps], :);
 
-    if size(path2d, 1) < 2
-        error('Для построения траектории требуется минимум две различные точки.');
-    end
-
     points = [path2d, zRef * ones(size(path2d, 1), 1)]';
-    if size(points, 2) == 2
+    if size(points, 2) == 1
+        % Уже достигнутая цель задаёт неподвижную траекторию на одном шаге времени.
+        pp = mkpp([0, dt], points, 3);
+        waypointTimes = [0, dt];
+        points = [points, points];
+    elseif size(points, 2) == 2
         duration = max(2 * norm(points(:, end) - points(:, 1)) / vRef, dt);
         pp = straightStopSegment(points(:, 1), points(:, end), duration, 0, 0);
         waypointTimes = [0, duration];
@@ -61,6 +55,9 @@ function traj = buildReferenceTrajectory(path2d, vRef, dt, zRef)
         points = [points(:, 1), middlePoints, points(:, end)];
     end
 
+    % Высота задаётся точно постоянной и в полиноме, и в отсчётах.
+    pp.coefs(3:3:end, :) = 0;
+    pp.coefs(3:3:end, end) = zRef;
     numSamples = max(2, ceil(pp.breaks(end) / dt) + 1);
     t = linspace(0, pp.breaks(end), numSamples);
     samples = sampleDerivatives(pp, t);

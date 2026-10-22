@@ -51,19 +51,4 @@ save(fullfile(resultDir, 'planner_analysis.mat'), ...
     'baseScenario', 'variants', 'runsPerValue', 'seedBase', 'results');
 
 % Итоговые таблицы каждого метода сохраняются в отдельную книгу Excel.
-for methodIndex = 1:numel(methods)
-    method = methods{methodIndex};
-    excelFile = fullfile(resultDir, ['analysis_', method, '.xlsx']);
-    names = fieldnames(results.(method).tables);
-    for parameter = 1:numel(names)
-        name = names{parameter};
-        parameterLabel = strrep(variants.(method).(name).label, '\lambda', 'λ');
-        heading = ['Параметр: ', parameterLabel, ' (', name, ')'];
-        writeMode = 'overwritesheet';
-        if parameter == 1, writeMode = 'replacefile'; end
-        writetable(results.(method).tables.(name), excelFile, ...
-            'Sheet', name, 'Range', 'A3', 'WriteMode', writeMode, 'UseExcel', false);
-        writecell({heading}, excelFile, 'Sheet', name, 'Range', 'A1', ...
-            'WriteMode', 'inplace', 'UseExcel', false);
-    end
-end
+analysis.exportAnalysis(results, variants, resultDir);

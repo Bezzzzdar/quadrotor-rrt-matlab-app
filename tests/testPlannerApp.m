@@ -164,3 +164,58 @@ function testFailedSearchAndResetClearGraphs(testCase)
     verifyEqual(testCase, selector.Value, 'rrt');
     verifyEqual(testCase, char(button.Enable), 'on');
 end
+
+function testExceptionClearsPreviousResult(testCase)
+%TESTEXCEPTIONCLEARSPREVIOUSRESULT Не оставляет успешную таблицу после ошибки входных данных.
+    fig = testCase.TestData.app.UIFigure;
+    selector = findobj(fig, 'Tag', 'PlannerDropDown');
+    selector.Value = 'astar';
+    selector.ValueChangedFcn(selector, []);
+    button = findobj(fig, 'Tag', 'PlanningButton');
+    button.ButtonPushedFcn(button, []);
+    table = findobj(fig, 'Tag', 'ResultTable');
+    assertNotEmpty(testCase, table.Data);
+    obstacles = findobj(fig, 'Tag', 'ObstaclesTable');
+    obstacles.Data = [0, 0, 1000, 1000];
+    button.ButtonPushedFcn(button, []);
+    verifyEmpty(testCase, table.Data);
+    export = findobj(fig, 'Tag', 'ExportButton');
+    verifyEqual(testCase, char(export.Enable), 'off');
+    verifyEqual(testCase, char(button.Enable), 'on');
+    for tag = {'MapAxes', 'ErrorComponentAxes', 'DerivativeAxes1', 'DerivativeAxes2', 'DerivativeAxes3', 'DerivativeAxes4'}
+        ax = findobj(fig, 'Tag', tag{1});
+        verifyEmpty(testCase, findobj(ax, 'Type', 'line'));
+    end
+end
+
+function testEditingInvalidatesPreviousResult(testCase)
+%TESTEDITINGINVALIDATESPREVIOUSRESULT Смена параметра запрещает экспорт старой траектории.
+    fig = testCase.TestData.app.UIFigure;
+    selector = findobj(fig, 'Tag', 'PlannerDropDown');
+    selector.Value = 'astar';
+    selector.ValueChangedFcn(selector, []);
+    button = findobj(fig, 'Tag', 'PlanningButton');
+    button.ButtonPushedFcn(button, []);
+    field = findobj(fig, 'Tag', 'HeuristicWeightField');
+    field.Value = 0.5;
+    field.ValueChangedFcn(field, []);
+    table = findobj(fig, 'Tag', 'ResultTable');
+    verifyEmpty(testCase, table.Data);
+    export = findobj(fig, 'Tag', 'ExportButton');
+    verifyEqual(testCase, char(export.Enable), 'off');
+end
+
+function testDeleteSelectedObstacleRows(testCase)
+%TESTDELETESELECTEDOBSTACLEROWS Удаляет выбранные строки, а не последнюю запись.
+    fig = testCase.TestData.app.UIFigure;
+    obstacles = findobj(fig, 'Tag', 'ObstaclesTable');
+    data = [1, 1, 1, 1; 2, 2, 2, 2; 3, 3, 3, 3];
+    obstacles.Data = data;
+    button = findobj(fig, 'Text', 'Удалить');
+    obstacles.Selection = [1, 1; 1, 2; 3, 1];
+    button.ButtonPushedFcn(button, []);
+    verifyEqual(testCase, obstacles.Data, data(2, :));
+    verifyEmpty(testCase, obstacles.Selection);
+    button.ButtonPushedFcn(button, []);
+    verifyEqual(testCase, obstacles.Data, data(2, :));
+end

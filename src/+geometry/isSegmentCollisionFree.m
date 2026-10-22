@@ -1,24 +1,34 @@
-function result = isSegmentCollisionFree(p1, p2, map, obstacles, safetyRadius, checkStep)
-%ISSEGMENTCOLLISIONFREE Проверяет отрезок на пересечение с препятствиями.
+function result = isSegmentCollisionFree(p1, p2, map, obstacles, safetyRadius)
+%ISSEGMENTCOLLISIONFREE Точно проверяет пересечение с замкнутыми прямоугольниками.
+% Проверяются интервалы параметра отрезка, без дискретизации по точкам.
+% https://www.pbr-book.org/4ed/Shapes/Basic_Shape_Interface#RayndashBoundsIntersections
 
-    validateattributes(checkStep, {'numeric'}, {'scalar', 'real', 'finite', 'positive'});
-    segmentLength = norm(p2 - p1);
-    n = max(2, ceil(segmentLength / checkStep));
-    points = p1 + ((0:n)' / n) .* (p2 - p1);
-    result = all(points(:, 1) >= 0 & points(:, 1) <= map.width & ...
-        points(:, 2) >= 0 & points(:, 2) <= map.height);
-    if ~result
+    result = false;
+    if any(~isfinite([p1, p2])) || ~geometry.isPointInsideMap(p1, map) || ...
+            ~geometry.isPointInsideMap(p2, map)
         return;
     end
-
+    direction = p2 - p1;
     for i = 1:size(obstacles, 1)
-        obstacle = obstacles(i, :);
-        if any(points(:, 1) >= obstacle(1) - safetyRadius & ...
-                points(:, 1) <= obstacle(1) + obstacle(3) + safetyRadius & ...
-                points(:, 2) >= obstacle(2) - safetyRadius & ...
-                points(:, 2) <= obstacle(2) + obstacle(4) + safetyRadius)
-            result = false;
+        lower = obstacles(i, 1:2) - safetyRadius;
+        upper = obstacles(i, 1:2) + obstacles(i, 3:4) + safetyRadius;
+        enter = 0;
+        leave = 1;
+        for dimension = 1:2
+            if direction(dimension) == 0
+                if p1(dimension) < lower(dimension) || p1(dimension) > upper(dimension)
+                    enter = Inf;
+                    break;
+                end
+            else
+                times = ([lower(dimension), upper(dimension)] - p1(dimension)) / direction(dimension);
+                enter = max(enter, min(times));
+                leave = min(leave, max(times));
+            end
+        end
+        if enter <= leave
             return;
         end
     end
+    result = true;
 end

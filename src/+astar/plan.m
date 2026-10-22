@@ -3,6 +3,7 @@ function [path, search] = plan(start2d, goal2d, map, obstacles, safetyRadius, pa
 % Эвристики: https://theory.stanford.edu/~amitp/GameProgramming/Heuristics.html
 % Разрешение равенств: https://www.ijcai.org/proceedings/2018/655
 
+    if nargin < 6, params = struct(); end
     heuristicType = "euclidean";
     heuristicWeight = 1;
     tieBreaking = "largerg";
@@ -18,9 +19,9 @@ function [path, search] = plan(start2d, goal2d, map, obstacles, safetyRadius, pa
     validateattributes(heuristicWeight, {'numeric'}, {'scalar', 'real', 'finite', 'positive', '<=', 1});
 
     validateattributes(map.resolution, {'numeric'}, {'scalar', 'real', 'finite', 'positive'});
+    validateattributes(map.width, {'numeric'}, {'scalar', 'real', 'finite', 'positive'});
+    validateattributes(map.height, {'numeric'}, {'scalar', 'real', 'finite', 'positive'});
     [freeGrid, xValues, yValues] = buildFreeGrid(map, obstacles, safetyRadius);
-    [startRow, startCol] = pointToGrid(start2d, xValues, yValues);
-    [goalRow, goalCol] = pointToGrid(goal2d, xValues, yValues);
 
     path = [];
     search = struct('freeGrid', freeGrid, 'xValues', xValues, 'yValues', yValues, ...
@@ -33,15 +34,21 @@ function [path, search] = plan(start2d, goal2d, map, obstacles, safetyRadius, pa
         search.message = 'Старт или цель находятся вне свободного пространства.';
         return;
     end
-    if ~freeGrid(startRow, startCol) || ~freeGrid(goalRow, goalCol)
-        search.message = 'Ближайший к старту или цели узел сетки занят.';
+    geometry.validateScenario(map, start2d, goal2d, obstacles, safetyRadius);
+    if isequal(start2d, goal2d)
+        path = start2d;
+        return;
+    end
+    startId = endpointNode(start2d, freeGrid, xValues, yValues, map, obstacles, safetyRadius);
+    goalId = endpointNode(goal2d, freeGrid, xValues, yValues, map, obstacles, safetyRadius);
+    if isempty(startId) || isempty(goalId)
+        search.message = 'Нет безопасного подключения старта или цели к сетке.';
         return;
     end
 
-    startId = sub2ind(size(freeGrid), startRow, startCol);
-    goalId = sub2ind(size(freeGrid), goalRow, goalCol);
+    freeEdges = buildFreeEdges(xValues, yValues, obstacles, safetyRadius);
     [parents, visited, goalReached] = gridAStar(freeGrid, startId, goalId, xValues, yValues, ...
-        heuristicType, heuristicWeight, tieBreaking);
+        heuristicType, heuristicWeight, tieBreaking, freeEdges);
     search.visitedIds = find(visited);
     search.parents = parents;
     if ~goalReached
@@ -50,22 +57,11 @@ function [path, search] = plan(start2d, goal2d, map, obstacles, safetyRadius, pa
     end
 
     path = restoreGridPath(parents, startId, goalId, xValues, yValues, size(freeGrid));
-    if size(path, 1) == 1
+    if startId == goalId && geometry.isSegmentCollisionFree(start2d, goal2d, map, obstacles, safetyRadius)
         path = [start2d; goal2d];
     else
-        path(1, :) = start2d;
-        path(end, :) = goal2d;
-    end
-    checkStep = map.resolution;
-    if isfield(params, 'collisionCheckStep')
-        checkStep = params.collisionCheckStep;
-    end
-    if ~geometry.isSegmentCollisionFree(path(1, :), path(2, :), ...
-            map, obstacles, safetyRadius, checkStep) || ...
-            ~geometry.isSegmentCollisionFree(path(end-1, :), path(end, :), ...
-            map, obstacles, safetyRadius, checkStep)
-        path = [];
-        search.message = 'Нет безопасного подключения старта или цели к сетке.';
+        if ~isequal(path(1, :), start2d), path = [start2d; path]; end
+        if ~isequal(path(end, :), goal2d), path = [path; goal2d]; end
     end
 end
 
@@ -91,13 +87,69 @@ function [freeGrid, xValues, yValues] = buildFreeGrid(map, obstacles, safetyRadi
     freeGrid = ~blocked;
 end
 
-function [row, col] = pointToGrid(point, xValues, yValues)
-%POINTTOGRID Учитывает укороченный шаг у границы карты.
+function id = endpointNode(point, freeGrid, xValues, yValues, map, obstacles, radius)
+%ENDPOINTNODE Подключает точку к ближайшему видимому свободному узлу.
     [~, col] = min(abs(xValues - point(1)));
     [~, row] = min(abs(yValues - point(2)));
+    id = sub2ind(size(freeGrid), row, col);
+    if freeGrid(id) && geometry.isSegmentCollisionFree( ...
+            point, [xValues(col), yValues(row)], map, obstacles, radius)
+        return;
+    end
+    distances = (xValues - point(1)).^2 + (yValues' - point(2)).^2;
+    distances(~freeGrid) = Inf;
+    [values, order] = sort(distances(:));
+    id = [];
+    for candidate = 1:nnz(isfinite(values))
+        [row, col] = ind2sub(size(freeGrid), order(candidate));
+        if geometry.isSegmentCollisionFree(point, [xValues(col), yValues(row)], map, obstacles, radius)
+            id = order(candidate);
+            return;
+        end
+    end
 end
 
-function [parents, visited, goalReached] = gridAStar(freeGrid, startId, goalId, xValues, yValues, heuristicType, heuristicWeight, tieBreaking)
+function freeEdges = buildFreeEdges(xValues, yValues, obstacles, radius)
+%BUILDFREEEDGES Заранее проверяет все рёбра, включая препятствия между узлами.
+% Пакетная проверка интервалов исключает геометрические циклы внутри поиска.
+% https://www.pbr-book.org/4ed/Shapes/Basic_Shape_Interface#RayndashBoundsIntersections
+    height = numel(yValues);
+    width = numel(xValues);
+    offsets = [-1,-1; -1,0; -1,1; 0,-1; 0,1; 1,-1; 1,0; 1,1];
+    freeEdges = false(height*width, 8);
+    for direction = 1:8
+        dr = offsets(direction, 1);
+        dc = offsets(direction, 2);
+        rows = max(1, 1-dr):min(height, height-dr);
+        cols = max(1, 1-dc):min(width, width-dc);
+        links = true(numel(rows), numel(cols));
+        for obstacle = 1:size(obstacles, 1)
+            lower = obstacles(obstacle, 1:2) - radius;
+            upper = obstacles(obstacle, 1:2) + obstacles(obstacle, 3:4) + radius;
+            [xEnter, xLeave] = axisInterval(xValues(cols), xValues(cols+dc), lower(1), upper(1));
+            [yEnter, yLeave] = axisInterval(yValues(rows)', yValues(rows+dr)', lower(2), upper(2));
+            links = links & max(0, max(xEnter, yEnter)) > min(1, min(xLeave, yLeave));
+        end
+        ids = rows' + (cols-1)*height;
+        freeEdges(ids(:), direction) = links(:);
+    end
+end
+
+function [enter, leave] = axisInterval(a, b, lower, upper)
+%AXISINTERVAL Возвращает интервал параметра внутри одной координатной полосы.
+    enter = -inf(size(a));
+    leave = inf(size(a));
+    moving = b ~= a;
+    first = (lower-a(moving))./(b(moving)-a(moving));
+    second = (upper-a(moving))./(b(moving)-a(moving));
+    enter(moving) = min(first, second);
+    leave(moving) = max(first, second);
+    outside = ~moving & (a < lower | a > upper);
+    enter(outside) = Inf;
+    leave(outside) = -Inf;
+end
+
+function [parents, visited, goalReached] = gridAStar(freeGrid, startId, goalId, xValues, yValues, heuristicType, heuristicWeight, tieBreaking, freeEdges)
 %GRIDASTAR Выполняет поиск без срезания углов занятых клеток.
     gridSize = size(freeGrid);
     nodeCount = numel(freeGrid);
@@ -163,6 +215,9 @@ function [parents, visited, goalReached] = gridAStar(freeGrid, startId, goalId, 
             end
             nextId = nextRow + (nextCol - 1) * gridSize(1);
             if visited(nextId)
+                continue;
+            end
+            if ~freeEdges(currentId, k)
                 continue;
             end
             stepCost = hypot(xValues(nextCol) - xValues(currentCol), ...

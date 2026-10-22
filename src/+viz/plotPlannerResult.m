@@ -19,7 +19,7 @@ function fig = plotPlannerResult(scenario, result)
 
     viz.plotScenario(mapAxes, scenario.map, scenario.obstacles, ...
         scenario.start2d, scenario.goal2d, result.tree, result.path, ...
-        result.simLog, result.rawPath, result.rrtPath, result.displayName);
+        result.simLog, result.rawPath, result.processedPath, result.displayName);
     mapAxes.FontSize = 11;
     legend(mapAxes, 'Location', 'southoutside', 'NumColumns', 2, 'FontSize', 9);
     viz.plotTrackingError(errorAxes, result.simLog);

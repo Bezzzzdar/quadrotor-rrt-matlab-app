@@ -116,6 +116,22 @@ function testTimeoutIsRecorded(testCase)
     end
 end
 
+function testInvalidTrajectoryIsNotExecutionError(testCase)
+%TESTINVALIDTRAJECTORYISNOTEXECUTIONERROR Сохраняет отказ общей проверки отдельно от исключений.
+    assumeTrue(testCase, exist('parpool', 'file') == 2 && exist('minsnappolytraj', 'file') == 2);
+    options = struct('runCount', 1, 'seedBase', 47, 'timeLimit_s', 10);
+    result = analysis.runComparison(testCase.TestData.scenario, testCase.TestData.configurations(1), options);
+    verifyEqual(testCase, result.samples.Status, "invalid_trajectory");
+    verifyTrue(testCase, result.samples.PlanningSolved);
+    verifyFalse(testCase, result.samples.Solved);
+    verifyTrue(testCase, isnan(result.samples.PathLength_m));
+    verifyEqual(testCase, result.summary.InvalidTrajectoryRuns, 1);
+    verifyEqual(testCase, result.summary.ErrorRuns, 0);
+    verifyGreaterThan(testCase, result.samples.ValidationTime_s, 0);
+    verifyEqual(testCase, result.samples.PipelineTime_s, result.samples.CalculationTime_s + ...
+        result.samples.PostprocessingTime_s + result.samples.ValidationTime_s, 'AbsTol', 1e-12);
+end
+
 function result = syntheticResult
 %SYNTHETICRESULT Задаёт две успешные попытки и одну ошибку с известной статистикой.
     samples = table(repmat("RRT", 3, 1), ["solved"; "solved"; "error"], ...

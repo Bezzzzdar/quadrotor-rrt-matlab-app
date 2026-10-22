@@ -1,4 +1,4 @@
-function smoothPath = shortcutSmoothPath(path, map, obstacles, safetyRadius, checkStep, iterations)
+function smoothPath = shortcutSmoothPath(path, map, obstacles, safetyRadius, iterations)
 %SHORTCUTSMOOTHPATH Сглаживает маршрут методом случайных сокращений.
 
     smoothPath = path;
@@ -25,7 +25,7 @@ function smoothPath = shortcutSmoothPath(path, map, obstacles, safetyRadius, che
             p1 = smoothPath(i, :);
             p2 = smoothPath(j, :);
 
-            if geometry.isSegmentCollisionFree(p1, p2, map, obstacles, safetyRadius, checkStep)
+            if geometry.isSegmentCollisionFree(p1, p2, map, obstacles, safetyRadius)
                 smoothPath = [smoothPath(1:i, :); smoothPath(j:end, :)];
             end
         end

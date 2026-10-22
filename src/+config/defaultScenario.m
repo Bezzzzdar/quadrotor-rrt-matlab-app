@@ -17,9 +17,7 @@ function scenario = defaultScenario()
     scenario.rrt.goalBias = 0.10;
     scenario.rrt.maxIter = 6000;
     scenario.rrt.goalThreshold = 1;
-    scenario.rrt.collisionCheckStep = 1;
     scenario.rrt.smoothingIterations = 300;
-    scenario.rrt.densePathStep = 1;
 
     scenario.astar.heuristicType = 'euclidean';
     scenario.astar.heuristicWeight = 1;

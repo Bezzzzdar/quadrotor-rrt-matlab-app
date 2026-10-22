@@ -9,9 +9,6 @@ function result = runPlannerExperiment(scenario, plannerName, simulateDynamics, 
         scenario.obstacles, scenario.safetyRadius);
 
     params = scenario.rrt;
-    if params.goalThreshold <= 0
-        params.goalThreshold = params.stepSize;
-    end
 
     plannerName = lower(string(plannerName));
 
@@ -29,16 +26,19 @@ function result = runPlannerExperiment(scenario, plannerName, simulateDynamics, 
     result.displayName = char(displayName);
     result.tree = tree;
     result.rawPath = path;
-    result.rrtPath = [];
+    result.processedPath = [];
     result.path = [];
     result.referenceTrajectory = [];
     result.simLog = [];
     result.pathFound = ~isempty(path);
     result.calculationTime = calculationTime;
     result.message = '';
+    result.status = 'no_path';
+    result.trajectoryValidation = [];
+    result.validationTime = 0;
+    result.metrics = metrics.pathMetrics([]);
 
     if isempty(path)
-        result.metrics = emptyMetrics();
         result.summary = makeSummary(result, []);
         result.message = 'Маршрут не найден.';
         if isfield(tree, 'message') && ~isempty(tree.message)
@@ -47,31 +47,54 @@ function result = runPlannerExperiment(scenario, plannerName, simulateDynamics, 
         return;
     end
 
+    validationStart = tic;
+    rawFree = geometry.isPathCollisionFree(path, scenario.map, scenario.obstacles, scenario.safetyRadius) && ...
+        norm(path(1, :) - scenario.start2d) <= 1e-8 && norm(path(end, :) - scenario.goal2d) <= 1e-8;
+    result.validationTime = toc(validationStart);
+    if ~rawFree
+        result.pathFound = false;
+        result.status = 'invalid_path';
+        result.message = 'Исходный маршрут недопустим: неверные концы или пересечение препятствия.';
+        result.summary = makeSummary(result, []);
+        return;
+    end
+
     if plannerName == "rrt"
         simplifiedPath = path;
         smoothingIterations = params.smoothingIterations;
     else
         simplifiedPath = lineOfSightSimplifyPath( ...
-            path, scenario.map, scenario.obstacles, scenario.safetyRadius, ...
-            params.collisionCheckStep);
+            path, scenario.map, scenario.obstacles, scenario.safetyRadius);
         % Для A* и Вороного сохраняем середины сегментов, но исключаем случайные сокращения.
         smoothingIterations = 0;
     end
 
     smoothPath = rrt.shortcutSmoothPath( ...
         simplifiedPath, scenario.map, scenario.obstacles, scenario.safetyRadius, ...
-        params.collisionCheckStep, smoothingIterations);
+        smoothingIterations);
 
-    result.rrtPath = smoothPath;
-    if simulateDynamics
-        [result.simLog, result.referenceTrajectory] = quadrotor.simulateOnPath( ...
-            smoothPath, scenario.quad, scenario.ctrl, scenario.sim);
-    else
-        result.referenceTrajectory = quadrotor.buildReferenceTrajectory( ...
-            smoothPath, scenario.sim.vRef, scenario.sim.dt, scenario.sim.zRef);
+    result.processedPath = smoothPath;
+    result.referenceTrajectory = quadrotor.buildReferenceTrajectory( ...
+        smoothPath, scenario.sim.vRef, scenario.sim.dt, scenario.sim.zRef);
+    validationStart = tic;
+    [free, result.trajectoryValidation] = geometry.isPolynomialTrajectoryFree( ...
+        result.referenceTrajectory.pp, scenario.map, scenario.obstacles, scenario.safetyRadius);
+    result.validationTime = result.validationTime + toc(validationStart);
+    if ~free
+        % Недопустимая траектория остаётся в диагностике, но не моделируется и не оценивается.
+        result.pathFound = false;
+        result.status = 'invalid_trajectory';
+        result.message = result.trajectoryValidation.message;
+        result.summary = makeSummary(result, []);
+        return;
     end
+    if simulateDynamics
+        result.simLog = quadrotor.simulateOnPath( ...
+            smoothPath, scenario.quad, scenario.ctrl, scenario.sim, result.referenceTrajectory);
+    end
+    result.status = 'solved';
     result.path = result.referenceTrajectory.xd(1:2, :)';
-    result.metrics = metrics.pathMetrics(result.path, params.densePathStep, result.referenceTrajectory);
+    result.metrics = metrics.pathMetrics(result.referenceTrajectory);
     result.summary = makeSummary(result, result.simLog);
     if ~simulateDynamics, result.summary.DynamicFeasible = NaN; end
     if simulateDynamics
@@ -81,7 +104,7 @@ function result = runPlannerExperiment(scenario, plannerName, simulateDynamics, 
     end
 end
 
-function simplifiedPath = lineOfSightSimplifyPath(path, map, obstacles, safetyRadius, checkStep)
+function simplifiedPath = lineOfSightSimplifyPath(path, map, obstacles, safetyRadius)
 %LINEOFSIGHTSIMPLIFYPATH Убирает избыточные точки с проверкой препятствий.
 
     if size(path, 1) <= 2
@@ -100,7 +123,7 @@ function simplifiedPath = lineOfSightSimplifyPath(path, map, obstacles, safetyRa
         for candidateIndex = size(path, 1):-1:currentIndex + 1
             if geometry.isSegmentCollisionFree( ...
                     path(currentIndex, :), path(candidateIndex, :), ...
-                    map, obstacles, safetyRadius, checkStep)
+                    map, obstacles, safetyRadius)
                 nextIndex = candidateIndex;
                 break;
             end
@@ -111,16 +134,6 @@ function simplifiedPath = lineOfSightSimplifyPath(path, map, obstacles, safetyRa
         currentIndex = nextIndex;
     end
     simplifiedPath = path(indices(1:count), :);
-end
-
-function m = emptyMetrics()
-%EMPTYMETRICS Возвращает метрики при отсутствии маршрута.
-
-    m = struct( ...
-        'pathLength', NaN, ...
-        'maxCurvature', NaN, ...
-        'meanCurvature', NaN, ...
-        'densePath', []);
 end
 
 function summary = makeSummary(result, simLog)

@@ -7,4 +7,4 @@ rootDir = fileparts(fileparts(mfilename('fullpath')));
 addpath(genpath(fullfile(rootDir, 'src')));
 addpath(fullfile(rootDir, 'apps'));
 
-app = QuadrotorRRTApp(); %#ok<NASGU>
+app = QuadrotorRRTApp();

@@ -36,17 +36,7 @@ function exportComparison(result, resultDir)
     for index = 1:numel(sheets)
         mode = 'overwritesheet';
         if index == 1, mode = 'replacefile'; end
-        excelTable = tables{index};
-        for name = excelTable.Properties.VariableNames
-            value = excelTable.(name{1});
-            if isnumeric(value) && any(isinf(value), 'all')
-                % Excel не хранит числовой Inf: пишем текст, не допускаем подмены конечным числом.
-                cells = num2cell(value);
-                cells(value == Inf) = {'Inf'};
-                cells(value == -Inf) = {'-Inf'};
-                excelTable.(name{1}) = cells;
-            end
-        end
+        excelTable = analysis.excelSafeTable(tables{index});
         writetable(excelTable, workbook, 'Sheet', sheets{index}, 'Range', 'A3', ...
             'WriteMode', mode, 'UseExcel', false);
         writecell(titles(index), workbook, 'Sheet', sheets{index}, 'Range', 'A1', ...

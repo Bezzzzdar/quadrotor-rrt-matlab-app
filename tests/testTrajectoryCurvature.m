@@ -103,12 +103,11 @@ function testDiscontinuousPositionRejected(testCase)
     verifyError(testCase, @() metrics.calculateMeanCurvature(pp), 'metrics:DiscontinuousTrajectory');
 end
 
-function testMetricsIndependentOfDenseStep(testCase)
-%TESTMETRICSINDEPENDENTOFDENSESTEP Шаг отрисовки не влияет на полиномиальные метрики.
+function testMetricsIndependentOfSamples(testCase)
+%TESTMETRICSINDEPENDENTOFSAMPLES Отсчёты отрисовки не влияют на полиномиальные метрики.
     pp = mkpp([0, 1], [0, 1, 0; 1, 0, 0], 2);
-    points = [0, 0; 0.4, 0.16; 1, 1];
-    a = metrics.pathMetrics(points, 1, struct('pp', pp));
-    b = metrics.pathMetrics(points, 0.01, struct('pp', pp));
+    a = metrics.pathMetrics(struct('pp', pp, 'xd', ppval(pp, [0, 1])));
+    b = metrics.pathMetrics(struct('pp', pp, 'xd', ppval(pp, linspace(0, 1, 1001))));
     verifyEqual(testCase, a.meanCurvature, b.meanCurvature);
     verifyEqual(testCase, a.maxCurvature, b.maxCurvature);
     verifyEqual(testCase, a.pathLength, b.pathLength);
@@ -145,7 +144,7 @@ function testProjectMinimumSnapEndpoint(testCase)
     [route, ~] = rrt.plan(scenario.start2d, scenario.goal2d, scenario.map, ...
         scenario.obstacles, scenario.safetyRadius, scenario.rrt);
     route = rrt.shortcutSmoothPath(route, scenario.map, scenario.obstacles, ...
-        scenario.safetyRadius, scenario.rrt.collisionCheckStep, scenario.rrt.smoothingIterations);
+        scenario.safetyRadius, scenario.rrt.smoothingIterations);
     trajectory = quadrotor.buildReferenceTrajectory(route, scenario.sim.vRef, scenario.sim.dt, scenario.sim.zRef);
     [meanValue, info] = metrics.calculateMeanCurvature(trajectory);
     verifyTrue(testCase, isfinite(meanValue));

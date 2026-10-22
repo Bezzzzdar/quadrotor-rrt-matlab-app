@@ -15,7 +15,6 @@ function planned = planGeometricPath(scenario, plannerName)
         case "astar"
             astarParams = struct();
             if isfield(scenario, 'astar'), astarParams = scenario.astar; end
-            astarParams.collisionCheckStep = params.collisionCheckStep;
             [path, tree] = astar.plan(scenario.start2d, scenario.goal2d, scenario.map, ...
                 scenario.obstacles, scenario.safetyRadius, astarParams);
             displayName = "A*";

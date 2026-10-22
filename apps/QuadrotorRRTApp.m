@@ -19,6 +19,7 @@ classdef QuadrotorRRTApp < matlab.apps.AppBase
         PlannerDropDown matlab.ui.control.DropDown
         DerivativeComponentDropDown matlab.ui.control.DropDown
         PlanningButton matlab.ui.control.Button
+        ExportButton matlab.ui.control.Button
         ClearanceWeightField matlab.ui.control.NumericEditField
         ClearanceExponentField matlab.ui.control.NumericEditField
         ConnectionCountField matlab.ui.control.NumericEditField
@@ -44,9 +45,7 @@ classdef QuadrotorRRTApp < matlab.apps.AppBase
         GoalBiasField matlab.ui.control.NumericEditField
         MaxIterField matlab.ui.control.NumericEditField
         GoalThresholdField matlab.ui.control.NumericEditField
-        CollisionStepField matlab.ui.control.NumericEditField
         SmoothIterField matlab.ui.control.NumericEditField
-        DenseStepField matlab.ui.control.NumericEditField
 
         VRefField matlab.ui.control.NumericEditField
         DtField matlab.ui.control.NumericEditField
@@ -110,7 +109,7 @@ classdef QuadrotorRRTApp < matlab.apps.AppBase
             end
 
             paramGrid = uigridlayout(paramPanel, [5 1]);
-            paramGrid.RowHeight = {140, 145, 175, 95, 160};
+            paramGrid.RowHeight = {140, 145, 145, 95, 160};
             paramGrid.ColumnWidth = {'1x'};
             paramGrid.Padding = [8 8 8 8];
             paramGrid.RowSpacing = 8;
@@ -220,8 +219,8 @@ classdef QuadrotorRRTApp < matlab.apps.AppBase
                 'Title', 'Поиск и обработка маршрута');
             rrtPanel.Layout.Row = 3;
 
-            rrtGrid = uigridlayout(rrtPanel, [4 4]);
-            rrtGrid.RowHeight = {26, 26, 26, 26};
+            rrtGrid = uigridlayout(rrtPanel, [3 4]);
+            rrtGrid.RowHeight = {26, 26, 26};
             rrtGrid.ColumnWidth = {105, '1x', 105, '1x'};
             rrtGrid.Padding = [8 6 8 6];
             rrtGrid.RowSpacing = 5;
@@ -240,15 +239,9 @@ classdef QuadrotorRRTApp < matlab.apps.AppBase
             addLabel(rrtGrid, 'Порог цели');
             app.GoalThresholdField = addNum(rrtGrid, 50);
 
-            addLabel(rrtGrid, 'Шаг проверки');
-            app.CollisionStepField = addNum(rrtGrid, 1);
-
             addLabel(rrtGrid, 'Сокращения');
             app.SmoothIterField = addNum(rrtGrid, 300);
             app.SmoothIterField.Tag = 'SmoothIterField';
-
-            addLabel(rrtGrid, 'Шаг пути');
-            app.DenseStepField = addNum(rrtGrid, 1);
 
             uilabel(rrtGrid, 'Text', '');
             uilabel(rrtGrid, 'Text', '');
@@ -277,7 +270,7 @@ classdef QuadrotorRRTApp < matlab.apps.AppBase
 
             addLabel(simGrid, 'Макс. ошибка, м');
             app.MaxErrorField = addNum(simGrid, 25);
-            app.MaxErrorField.Tooltip = 'Допустимая конечная ошибка слежения, м';
+            app.MaxErrorField.Tooltip = 'Допустимая максимальная ошибка слежения по x и y за весь полёт, м';
 
             %% ===================== ПРЕПЯТСТВИЯ =====================
 
@@ -336,8 +329,9 @@ classdef QuadrotorRRTApp < matlab.apps.AppBase
                 'Tag', 'PlanningButton', ...
                 'ButtonPushedFcn', @(~,~) app.runPlanning());
 
-            uibutton(actionGrid, ...
+            app.ExportButton = uibutton(actionGrid, ...
                 'Text', 'Сохранить CSV', ...
+                'Tag', 'ExportButton', 'Enable', 'off', ...
                 'ButtonPushedFcn', @(~,~) app.exportCsv());
 
             uibutton(actionGrid, ...
@@ -407,6 +401,11 @@ classdef QuadrotorRRTApp < matlab.apps.AppBase
                 'Динамически реализуем', 'Конечная ошибка, м', ...
                 'Макс. ошибка, м', 'Макс. тяга, Н', 'Средняя тяга, Н'};
             app.ResultTable.ColumnWidth = 'auto';
+            fields = findall(app.LeftPanel, '-isa', 'matlab.ui.control.NumericEditField');
+            set(fields, 'ValueChangedFcn', @(~,~) app.invalidateResult());
+            set([app.HeuristicTypeDropDown, app.TieBreakingDropDown], ...
+                'ValueChangedFcn', @(~,~) app.invalidateResult());
+            app.ObstaclesTable.CellEditCallback = @(~,~) app.invalidateResult();
         end
 
         function loadDefaultScenario(app)
@@ -433,9 +432,7 @@ classdef QuadrotorRRTApp < matlab.apps.AppBase
             app.GoalBiasField.Value = s.rrt.goalBias;
             app.MaxIterField.Value = s.rrt.maxIter;
             app.GoalThresholdField.Value = s.rrt.goalThreshold;
-            app.CollisionStepField.Value = s.rrt.collisionCheckStep;
             app.SmoothIterField.Value = s.rrt.smoothingIterations;
-            app.DenseStepField.Value = s.rrt.densePathStep;
 
             app.VRefField.Value = s.sim.vRef;
             app.DtField.Value = s.sim.dt;
@@ -480,6 +477,7 @@ classdef QuadrotorRRTApp < matlab.apps.AppBase
             heights = app.PlannerPanel.Parent.RowHeight;
             if strcmp(app.PlannerDropDown.Value, 'rrt'), heights{1} = 70; else, heights{1} = 140; end
             app.PlannerPanel.Parent.RowHeight = heights;
+            app.invalidateResult();
         end
 
         function scenario = collectScenario(app)
@@ -508,9 +506,7 @@ classdef QuadrotorRRTApp < matlab.apps.AppBase
             scenario.rrt.goalBias = app.GoalBiasField.Value;
             scenario.rrt.maxIter = round(app.MaxIterField.Value);
             scenario.rrt.goalThreshold = app.GoalThresholdField.Value;
-            scenario.rrt.collisionCheckStep = app.CollisionStepField.Value;
             scenario.rrt.smoothingIterations = round(app.SmoothIterField.Value);
-            scenario.rrt.densePathStep = app.DenseStepField.Value;
             scenario.astar.heuristicType = app.HeuristicTypeDropDown.Value;
             scenario.astar.heuristicWeight = app.HeuristicWeightField.Value;
             scenario.astar.tieBreaking = app.TieBreakingDropDown.Value;
@@ -529,6 +525,7 @@ classdef QuadrotorRRTApp < matlab.apps.AppBase
         end
 
         function runPlanning(app)
+            app.invalidateResult();
             app.PlanningButton.Enable = 'off';
             cleanup = onCleanup(@() set(app.PlanningButton, 'Enable', 'on'));
             try
@@ -548,11 +545,12 @@ classdef QuadrotorRRTApp < matlab.apps.AppBase
                     app.CurrentResult.path, ...
                     app.CurrentResult.simLog, ...
                     app.CurrentResult.rawPath, ...
-                    app.CurrentResult.rrtPath, ...
+                    app.CurrentResult.processedPath, ...
                     app.CurrentResult.displayName);
                 legend(app.PlotAxes, 'Location', 'southoutside', 'NumColumns', 2, 'FontSize', 11);
 
                 app.ResultTable.Data = [{app.CurrentResult.displayName}, table2cell(app.CurrentResult.summary)];
+                app.ExportButton.Enable = 'on';
 
                 app.plotSimulationGraphs();
 
@@ -560,9 +558,23 @@ classdef QuadrotorRRTApp < matlab.apps.AppBase
                     app.CurrentResult.displayName, app.CurrentResult.message);
 
             catch ME
+                app.invalidateResult();
                 app.StatusLabel.Text = ['Ошибка: ', ME.message];
-                uialert(app.UIFigure, ME.message, 'Ошибка расчёта');
+                if strcmp(app.UIFigure.Visible, 'on')
+                    uialert(app.UIFigure, ME.message, 'Ошибка расчёта');
+                end
             end
+        end
+
+        function invalidateResult(app)
+        %INVALIDATERESULT Не позволяет экспортировать результат для старых параметров.
+            app.CurrentResult = [];
+            app.ResultTable.Data = {};
+            app.ExportButton.Enable = 'off';
+            cla(app.PlotAxes);
+            legend(app.PlotAxes, 'off');
+            app.plotSimulationGraphs();
+            app.StatusLabel.Text = 'Требуется расчёт';
         end
 
         function plotSimulationGraphs(app)
@@ -576,38 +588,16 @@ classdef QuadrotorRRTApp < matlab.apps.AppBase
 
         function plotDerivativeGraphs(app)
         %PLOTDERIVATIVEGRAPHS Сравнивает производные траекторий только по x и y.
-            for order = 1:4
-                cla(app.DerivativeAxes(order));
-                legend(app.DerivativeAxes(order), 'off');
+            log = [];
+            if ~isempty(app.CurrentResult)
+                log = app.CurrentResult.simLog;
             end
-            if isempty(app.CurrentResult) || isempty(app.CurrentResult.simLog)
-                return;
-            end
-            log = app.CurrentResult.simLog;
-            actual = {log.firstDerivative, log.secondDerivative, log.thirdDerivative, log.fourthDerivative};
-            reference = {log.vd, log.ad, log.jerk, log.snap};
             componentNames = {'x', 'y'};
             components = 1:2;
             if ~strcmp(app.DerivativeComponentDropDown.Value, 'all')
                 components = find(strcmp(componentNames, app.DerivativeComponentDropDown.Value));
             end
-            colors = lines(2);
-            for order = 1:4
-                ax = app.DerivativeAxes(order);
-                hold(ax, 'on');
-                for component = components
-                    plot(ax, log.t, actual{order}(component, :), ...
-                        'Color', colors(component, :), 'LineWidth', 1.3, ...
-                        'DisplayName', sprintf('%s (ЛА)', componentNames{component}));
-                    plot(ax, log.t, reference{order}(component, :), '--', ...
-                        'Color', colors(component, :), 'LineWidth', 1.1, ...
-                        'DisplayName', sprintf('%s (опорная)', componentNames{component}));
-                end
-                grid(ax, 'on');
-                legend(ax, 'Location', 'southoutside', 'NumColumns', 2, 'FontSize', 10);
-                xlim(ax, [log.t(1), log.t(end)]);
-                hold(ax, 'off');
-            end
+            viz.plotTrajectoryDerivatives(log, app.DerivativeAxes, components, true);
         end
 
         function addObstacle(app)
@@ -620,6 +610,7 @@ classdef QuadrotorRRTApp < matlab.apps.AppBase
             data = [data; 100, 100, 100, 100];
 
             app.ObstaclesTable.Data = data;
+            app.invalidateResult();
         end
 
         function deleteObstacle(app)
@@ -629,13 +620,22 @@ classdef QuadrotorRRTApp < matlab.apps.AppBase
                 return;
             end
 
-            data(end, :) = [];
+            selection = app.ObstaclesTable.Selection;
+            if isempty(selection)
+                app.StatusLabel.Text = 'Выберите строки препятствий для удаления';
+                return;
+            end
+            rows = unique(selection(:, 1));
+            data(rows, :) = [];
 
             app.ObstaclesTable.Data = data;
+            app.ObstaclesTable.Selection = [];
+            app.invalidateResult();
         end
 
         function clearObstacles(app)
             app.ObstaclesTable.Data = zeros(0, 4);
+            app.invalidateResult();
         end
 
         function exportCsv(app)

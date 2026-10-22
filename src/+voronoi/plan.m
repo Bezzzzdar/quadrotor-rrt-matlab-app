@@ -4,9 +4,6 @@ function [path, roadmap] = plan(start2d, goal2d, map, obstacles, safetyRadius, p
 % p<>1 и K<>3 - исследуемые расширения базовой реализации, а не формула книги.
 
     geometry.validateScenario(map, start2d, goal2d, obstacles, safetyRadius);
-    if ~isscalar(map.resolution) || ~isfinite(map.resolution) || map.resolution <= 0
-        error('voronoi:InvalidResolution', 'Map resolution must be finite and positive.');
-    end
     if nargin < 6
         params = struct();
     end
@@ -84,7 +81,7 @@ function edges = connectEndpoint(point, pointId, nodes, map, obstacles, safetyRa
     edges = zeros(numel(order), 2);
     count = 0;
     for index = order'
-        if voronoi.isSegmentFree(point, nodes(index, :), map, obstacles, safetyRadius)
+        if geometry.isSegmentCollisionFree(point, nodes(index, :), map, obstacles, safetyRadius)
             count = count + 1;
             edges(count, :) = [pointId, index];
         end
