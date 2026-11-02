@@ -12,7 +12,7 @@ function plotScenario(ax, map, obstacles, start2d, goal2d, tree, path, simLog, r
     xlim(ax, [0, map.width]);
     ylim(ax, [0, map.height]);
     xlabel(ax, 'x, м');
-    ylabel(ax, 'y, м');
+    ylabel(ax, 'z, м');
 
     viz.drawObstacles(ax, obstacles);
 
@@ -41,11 +41,11 @@ function plotScenario(ax, map, obstacles, start2d, goal2d, tree, path, simLog, r
     end
 
     if ~isempty(smoothPath)
-        plot(ax, smoothPath(:, 1), smoothPath(:, 2), 'Color', '#FFA500', 'LineWidth', 1.6, 'DisplayName', 'Маршрут после сокращений');
+        plot(ax, smoothPath(:, 1), smoothPath(:, 2), 'Color', '#FFA500', 'LineWidth', 1.6, 'DisplayName', 'Сокращенный маршрут');
     end
 
     if ~isempty(path)
-        plot(ax, path(:, 1), path(:, 2), 'b-', 'LineWidth', 2.2, 'DisplayName', 'Minimum-snap траектория');
+        plot(ax, path(:, 1), path(:, 2), 'b-', 'LineWidth', 2.2, 'DisplayName', 'Маршрут сглаженный методом минимизации четвёртой производной');
     end
 
     if ~isempty(simLog)
