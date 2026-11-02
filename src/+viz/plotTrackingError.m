@@ -7,13 +7,13 @@ function plotTrackingError(ax, log)
         tag = ax.Tag;
         curves = plot(ax, log.t, deviation', 'LineWidth', 1.3);
         ax.Tag = tag;
-        set(curves(1), 'DisplayName', 'x');
-        set(curves(2), 'DisplayName', 'y');
+        set(curves(1), 'DisplayName', 'e_{x}');
+        set(curves(2), 'DisplayName', 'e_{z}');
         legend(ax, 'Location', 'northeast');
         xlim(ax, [log.t(1), log.t(end)]);
     end
     grid(ax, 'on');
-    xlabel(ax, 'Время, с');
-    ylabel(ax, 'Отклонение, м');
-    title(ax, 'Ошибки слежения по x и y');
+    xlabel(ax, 't, с');
+    ylabel(ax, 'e, м');
+    title(ax, 'Ошибки слежения по x и z');
 end

@@ -15,7 +15,7 @@ function plotTrajectoryDerivatives(log, axesList, components, includeReference)
             log.thirdDerivative, log.fourthDerivative};
         if includeReference, reference = {log.vd, log.ad, log.jerk, log.snap}; end
     end
-    componentNames = {'x', 'y'};
+    componentNames = {'x', 'z'};
     derivativeNames = {'Скорость', 'Ускорение', 'Рывок', 'Snap'};
     units = {'м/с', 'м/с^2', 'м/с^3', 'м/с^4'};
     colors = lines(2);
@@ -47,7 +47,7 @@ function plotTrajectoryDerivatives(log, axesList, components, includeReference)
             hold(ax, 'off');
         end
         grid(ax, 'on');
-        xlabel(ax, 'Время, с');
+        xlabel(ax, 't, с');
         if includeReference
             ylabel(ax, units{order});
             title(ax, sprintf('%d-я производная: %s', order, derivativeNames{order}));
