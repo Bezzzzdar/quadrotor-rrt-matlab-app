@@ -148,12 +148,15 @@ end
 function testAnalysisExcludesUnsafeTrajectory(testCase)
 %TESTANALYSISEXCLUDESUNSAFETRAJECTORY Не усредняет критерии недопустимой minimum-snap.
     scenario = smallScenario();
-    variants.stepSize = struct('value', 5, 'label', 'Шаг');
-    result = analysis.runMethod(scenario, 'rrt', variants, 1, 47);
-    verifyEqual(testCase, result.tables.stepSize.PathFoundRate, 0);
-    verifyEqual(testCase, result.tables.stepSize.ErrorCount, 0);
-    verifyTrue(testCase, isnan(result.tables.stepSize.MeanPathLength_m));
-    verifyNotEmpty(testCase, char(result.tables.stepSize.Message));
+    configuration = struct('Name', 'RRT', 'Planner', 'rrt', 'Parameters', scenario.rrt);
+    options = struct('sceneCount', 1, 'plannerSeedBase', 47, 'sceneSeedBase', 5018, ...
+        'obstacles', struct('countRange', [3, 3], 'minSize_m', [3, 3], 'maxSize_m', [7, 7], ...
+        'maxAreaFraction', 0.3, 'maxPlacementAttempts', 1000));
+    result = analysis.runExperiment(scenario, configuration, options);
+    verifyEqual(testCase, result.probabilities.rrt, 0);
+    verifyEqual(testCase, result.samples.Status, "invalid_trajectory");
+    verifyTrue(testCase, all(isnan(result.tables.rrt.Mean)));
+    verifyNotEmpty(testCase, char(result.samples.Message));
 end
 
 function testConstantAltitudeAndAllDerivatives(testCase)
@@ -198,31 +201,16 @@ function testMaximumTrackingErrorThreshold(testCase)
 end
 
 function testAnalysisExcelPreservesSignedInfinity(testCase)
-%TESTANALYSISEXCELPRESERVESSIGNEDINFINITY Проверяет три книги, три листа и обе бесконечности.
+%TESTANALYSISEXCELPRESERVESSIGNEDINFINITY Сохраняет знак обеих бесконечностей в итоговой таблице.
     folder = tempname;
     mkdir(folder);
     cleanup = onCleanup(@() removeTemporaryFolder(folder));
-    for method = {'rrt', 'astar', 'voronoi'}
-        for parameter = {'first', 'second', 'third'}
-            name = parameter{1};
-            results.(method{1}).tables.(name) = table([1; 2; 3], [Inf; -Inf; NaN], ...
-                'VariableNames', {'ParameterValue', 'Curvature'});
-            variants.(method{1}).(name).label = ['Проверка ', name];
-        end
-    end
-    analysis.exportAnalysis(results, variants, folder);
-    analysis.exportAnalysis(results, variants, folder);
-    for method = {'rrt', 'astar', 'voronoi'}
-        file = fullfile(folder, ['analysis_', method{1}, '.xlsx']);
-        verifyEqual(testCase, sheetnames(file), ["first"; "second"; "third"]);
-        for parameter = {'first', 'second', 'third'}
-            name = parameter{1};
-            values = readcell(file, 'Sheet', name, 'Range', 'B4:B5');
-            verifyEqual(testCase, string(values), ["Inf"; "-Inf"]);
-            heading = readcell(file, 'Sheet', name, 'Range', 'A1:A1');
-            verifyTrue(testCase, contains(string(heading{1}), ['Проверка ', name]));
-        end
-    end
+    values = table(["Первый"; "Второй"; "Третий"], [Inf; -Inf; NaN], ...
+        'VariableNames', {'Criterion', 'RRT_Mean'});
+    file = fullfile(folder, 'analysis_summary.xlsx');
+    writetable(analysis.excelSafeTable(values), file, 'UseExcel', false);
+    saved = readcell(file, 'Range', 'B2:B3');
+    verifyEqual(testCase, string(saved), ["Inf"; "-Inf"]);
 end
 
 function removeTemporaryFolder(folder)

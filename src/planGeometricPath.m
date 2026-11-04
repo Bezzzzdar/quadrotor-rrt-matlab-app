@@ -1,6 +1,5 @@
 function planned = planGeometricPath(scenario, plannerName)
 %PLANGEOMETRICPATH Отделяет измеряемое планирование от обработки траектории.
-% Раздельные метрики: https://www.kavrakilab.org/publications/moll-sucan2015benchmarking-motion-planning.pdf
     geometry.validateScenario(scenario.map, scenario.start2d, scenario.goal2d, ...
         scenario.obstacles, scenario.safetyRadius);
     params = scenario.rrt;

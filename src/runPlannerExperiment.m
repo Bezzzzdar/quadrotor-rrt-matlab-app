@@ -32,6 +32,8 @@ function result = runPlannerExperiment(scenario, plannerName, simulateDynamics, 
     result.simLog = [];
     result.pathFound = ~isempty(path);
     result.calculationTime = calculationTime;
+    result.minimumSnapTime = NaN;
+    result.planningTime = NaN;
     result.message = '';
     result.status = 'no_path';
     result.trajectoryValidation = [];
@@ -74,8 +76,11 @@ function result = runPlannerExperiment(scenario, plannerName, simulateDynamics, 
         smoothingIterations);
 
     result.processedPath = smoothPath;
+    minimumSnapStart = tic;
     result.referenceTrajectory = quadrotor.buildReferenceTrajectory( ...
         smoothPath, scenario.sim.vRef, scenario.sim.dt, scenario.sim.zRef);
+    result.minimumSnapTime = toc(minimumSnapStart);
+    result.planningTime = calculationTime + result.minimumSnapTime;
     validationStart = tic;
     [free, result.trajectoryValidation] = geometry.isPolynomialTrajectoryFree( ...
         result.referenceTrajectory.pp, scenario.map, scenario.obstacles, scenario.safetyRadius);
